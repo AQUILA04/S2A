@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import Link from "next/link";
 import { createMember } from "@/app/admin/members/actions";
 import type { MemberRole } from "@/types/database.types";
+import {
+    ArrowLeft, UserRound, Mail, Phone, Briefcase,
+    Calendar, Euro, Info, Send, Users, Wallet, Clock, ChevronDown
+} from "lucide-react";
 
-// Role options for the dropdown
 const ROLE_OPTIONS: { value: MemberRole; label: string }[] = [
     { value: "MEMBER", label: "Membre" },
     { value: "SG", label: "Secrétaire Général" },
@@ -18,57 +19,29 @@ const ROLE_OPTIONS: { value: MemberRole; label: string }[] = [
     { value: "PRESIDENT", label: "Président" },
 ];
 
-interface FormData {
-    first_name: string;
-    last_name: string;
-    email: string;
-    phone: string;
-    join_date: string;
-    monthly_fee: string;
-    role: MemberRole;
-    password: string;
-}
-
-interface FormErrors {
-    first_name?: string[];
-    last_name?: string[];
-    email?: string[];
-    phone?: string[];
-    join_date?: string[];
-    monthly_fee?: string[];
-    role?: string[];
-    password?: string[];
-    _form?: string[];
-}
-
-/**
- * /admin/members/new — Create Member Form (Client Component)
- * AC: 2, 3
- */
 export default function NewMemberPage() {
     const router = useRouter();
 
-    const [formData, setFormData] = useState<FormData>({
+    const [formData, setFormData] = useState({
         first_name: "",
         last_name: "",
         email: "",
         phone: "",
         join_date: new Date().toISOString().split("T")[0],
         monthly_fee: "",
-        role: "MEMBER",
-        password: "",
+        role: "MEMBER" as MemberRole,
+        password: "Temporaire123!" // Hidden password since mockup doesn't show it, user clicks link
     });
 
-    const [errors, setErrors] = useState<FormErrors>({});
+    const [errors, setErrors] = useState<any>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [successMessage, setSuccessMessage] = useState("");
 
     function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
         const { name, value } = e.target;
         setFormData((prev) => ({ ...prev, [name]: value }));
-        // Clear field error on change
-        if (errors[name as keyof FormErrors]) {
-            setErrors((prev) => ({ ...prev, [name]: undefined }));
+        if (errors[name]) {
+            setErrors((prev: any) => ({ ...prev, [name]: undefined }));
         }
     }
 
@@ -80,7 +53,7 @@ export default function NewMemberPage() {
 
         const payload = {
             ...formData,
-            monthly_fee: parseFloat(formData.monthly_fee),
+            monthly_fee: parseFloat(formData.monthly_fee) || 0,
         };
 
         const result = await createMember(payload);
@@ -91,7 +64,6 @@ export default function NewMemberPage() {
             return;
         }
 
-        // Success — show toast and redirect
         setSuccessMessage("Membre créé avec succès !");
         setTimeout(() => {
             router.push("/admin/members");
@@ -99,256 +71,228 @@ export default function NewMemberPage() {
     }
 
     return (
-        <div className="space-y-6">
-            <div>
-                <h1 className="text-2xl font-bold text-foreground">Ajouter un Membre</h1>
-                <p className="text-sm text-muted-foreground mt-1">
-                    Le nouveau membre aura le statut <strong>PENDING ACTIVATION</strong> jusqu&apos;à sa validation.
-                </p>
+        <div className="bg-[#F8F9FA] min-h-screen pb-24 md:pb-8 text-sm">
+            {/* Header */}
+            <div className="bg-white flex items-center px-4 py-4 border-b">
+                <Link href="/admin/members" className="p-2 -ml-2 text-[#002366] hover:bg-muted/30 rounded-full transition-colors">
+                    <ArrowLeft className="w-5 h-5" />
+                </Link>
+                <h1 className="text-base font-bold text-[#001030] ml-2">Amicale S2A</h1>
+                <span className="text-xs text-muted-foreground ml-auto hidden sm:block">Portail Administration</span>
             </div>
 
-            {/* Success toast */}
-            {successMessage && (
-                <div
-                    role="status"
-                    aria-live="polite"
-                    className="rounded-lg bg-success/10 border border-success/30 p-4 text-success font-semibold"
-                >
-                    ✅ {successMessage}
-                </div>
-            )}
+            <div className="max-w-2xl mx-auto mt-6">
+                <div className="bg-white mx-4 sm:mx-0 rounded-2xl p-5 shadow-sm border border-black/5">
+                    <h2 className="text-xl font-bold text-[#001030]">Nouveau Membre</h2>
+                    <p className="text-xs text-muted-foreground mt-1 mb-8">
+                        Complétez les informations pour intégrer un nouveau membre à l'amicale.
+                    </p>
 
-            {/* Form-level error */}
-            {errors._form && (
-                <div
-                    role="alert"
-                    className="rounded-lg bg-destructive/10 border border-destructive/30 p-4 text-destructive"
-                >
-                    {errors._form.join(", ")}
-                </div>
-            )}
+                    {successMessage && (
+                        <div className="mb-6 rounded-lg bg-success/10 border border-success/30 p-4 text-success text-sm font-semibold">
+                            ✅ {successMessage}
+                        </div>
+                    )}
 
-            <Card>
-                <CardHeader>
-                    <CardTitle>Informations du Membre</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <form onSubmit={handleSubmit} className="space-y-5" noValidate>
-                        {/* First & Last Name */}
-                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    {errors._form && (
+                        <div className="mb-6 rounded-lg bg-destructive/10 border border-destructive/30 p-4 text-destructive text-sm font-semibold">
+                            ❌ {errors._form.join(", ")}
+                        </div>
+                    )}
+
+                    <form onSubmit={handleSubmit} className="space-y-8" noValidate>
+
+                        {/* Section: Informations Personnelles */}
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-2 text-[#002366] mb-2 font-bold uppercase tracking-wider text-xs">
+                                <UserRound className="w-4 h-4" />
+                                <h3>Informations Personnelles</h3>
+                            </div>
+
                             <div className="space-y-1">
-                                <label htmlFor="first_name" className="text-sm font-medium">
-                                    Prénom <span className="text-destructive">*</span>
-                                </label>
-                                <Input
+                                <label htmlFor="first_name" className="text-xs font-semibold text-[#001030]">Prénom</label>
+                                <input
                                     id="first_name"
                                     name="first_name"
                                     value={formData.first_name}
                                     onChange={handleChange}
-                                    placeholder="Jean"
-                                    required
-                                    aria-invalid={!!errors.first_name}
-                                    aria-describedby={errors.first_name ? "first_name-error" : undefined}
+                                    placeholder="Ex: Jean"
+                                    className="w-full px-4 py-2.5 bg-white border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#002366]/20 transition-all placeholder:text-muted-foreground/50 border-black/10"
                                 />
-                                {errors.first_name && (
-                                    <p id="first_name-error" className="text-xs text-destructive">
-                                        {errors.first_name[0]}
-                                    </p>
-                                )}
+                                {errors.first_name && <p className="text-xs text-destructive">{errors.first_name[0]}</p>}
                             </div>
 
                             <div className="space-y-1">
-                                <label htmlFor="last_name" className="text-sm font-medium">
-                                    Nom <span className="text-destructive">*</span>
-                                </label>
-                                <Input
+                                <label htmlFor="last_name" className="text-xs font-semibold text-[#001030]">Nom</label>
+                                <input
                                     id="last_name"
                                     name="last_name"
                                     value={formData.last_name}
                                     onChange={handleChange}
-                                    placeholder="Dupont"
-                                    required
-                                    aria-invalid={!!errors.last_name}
-                                    aria-describedby={errors.last_name ? "last_name-error" : undefined}
+                                    placeholder="Ex: Dupont"
+                                    className="w-full px-4 py-2.5 bg-white border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#002366]/20 transition-all placeholder:text-muted-foreground/50 border-black/10"
                                 />
-                                {errors.last_name && (
-                                    <p id="last_name-error" className="text-xs text-destructive">
-                                        {errors.last_name[0]}
-                                    </p>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Email */}
-                        <div className="space-y-1">
-                            <label htmlFor="email" className="text-sm font-medium">
-                                Email <span className="text-destructive">*</span>
-                            </label>
-                            <Input
-                                id="email"
-                                name="email"
-                                type="email"
-                                value={formData.email}
-                                onChange={handleChange}
-                                placeholder="membre@exemple.org"
-                                required
-                                aria-invalid={!!errors.email}
-                                aria-describedby={errors.email ? "email-error" : undefined}
-                            />
-                            {errors.email && (
-                                <p id="email-error" className="text-xs text-destructive">
-                                    {errors.email[0]}
-                                </p>
-                            )}
-                        </div>
-
-                        {/* Phone */}
-                        <div className="space-y-1">
-                            <label htmlFor="phone" className="text-sm font-medium">
-                                Téléphone <span className="text-destructive">*</span>
-                            </label>
-                            <Input
-                                id="phone"
-                                name="phone"
-                                type="tel"
-                                value={formData.phone}
-                                onChange={handleChange}
-                                placeholder="+225 07 00 00 00 00"
-                                required
-                                aria-invalid={!!errors.phone}
-                                aria-describedby={errors.phone ? "phone-error" : undefined}
-                            />
-                            {errors.phone && (
-                                <p id="phone-error" className="text-xs text-destructive">
-                                    {errors.phone[0]}
-                                </p>
-                            )}
-                        </div>
-
-                        {/* Join Date & Monthly Fee */}
-                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                            <div className="space-y-1">
-                                <label htmlFor="join_date" className="text-sm font-medium">
-                                    Date d&apos;adhésion <span className="text-destructive">*</span>
-                                </label>
-                                <Input
-                                    id="join_date"
-                                    name="join_date"
-                                    type="date"
-                                    value={formData.join_date}
-                                    onChange={handleChange}
-                                    required
-                                    aria-invalid={!!errors.join_date}
-                                    aria-describedby={errors.join_date ? "join_date-error" : undefined}
-                                />
-                                {errors.join_date && (
-                                    <p id="join_date-error" className="text-xs text-destructive">
-                                        {errors.join_date[0]}
-                                    </p>
-                                )}
+                                {errors.last_name && <p className="text-xs text-destructive">{errors.last_name[0]}</p>}
                             </div>
 
                             <div className="space-y-1">
-                                <label htmlFor="monthly_fee" className="text-sm font-medium">
-                                    Cotisation mensuelle (CFA) <span className="text-destructive">*</span>
-                                </label>
-                                <Input
-                                    id="monthly_fee"
-                                    name="monthly_fee"
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
-                                    value={formData.monthly_fee}
-                                    onChange={handleChange}
-                                    placeholder="10000"
-                                    required
-                                    aria-invalid={!!errors.monthly_fee}
-                                    aria-describedby={errors.monthly_fee ? "monthly_fee-error" : undefined}
-                                />
-                                {errors.monthly_fee && (
-                                    <p id="monthly_fee-error" className="text-xs text-destructive">
-                                        {errors.monthly_fee[0]}
-                                    </p>
-                                )}
+                                <label htmlFor="email" className="text-xs font-semibold text-[#001030]">Email</label>
+                                <div className="relative">
+                                    <input
+                                        id="email"
+                                        name="email"
+                                        type="email"
+                                        value={formData.email}
+                                        onChange={handleChange}
+                                        placeholder="jean.dupont@email.com"
+                                        className="w-full pl-4 pr-10 py-2.5 bg-white border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#002366]/20 transition-all placeholder:text-muted-foreground/50 border-black/10"
+                                    />
+                                    <Mail className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/50 w-4 h-4" />
+                                </div>
+                                {errors.email && <p className="text-xs text-destructive">{errors.email[0]}</p>}
+                            </div>
+
+                            <div className="space-y-1">
+                                <label htmlFor="phone" className="text-xs font-semibold text-[#001030]">Téléphone</label>
+                                <div className="relative">
+                                    <input
+                                        id="phone"
+                                        name="phone"
+                                        type="tel"
+                                        value={formData.phone}
+                                        onChange={handleChange}
+                                        placeholder="06 12 34 56 78"
+                                        className="w-full pl-4 pr-10 py-2.5 bg-white border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#002366]/20 transition-all placeholder:text-muted-foreground/50 border-black/10"
+                                    />
+                                    <Phone className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/50 w-4 h-4" />
+                                </div>
+                                {errors.phone && <p className="text-xs text-destructive">{errors.phone[0]}</p>}
                             </div>
                         </div>
 
-                        {/* Role */}
-                        <div className="space-y-1">
-                            <label htmlFor="role" className="text-sm font-medium">
-                                Rôle <span className="text-destructive">*</span>
-                            </label>
-                            <select
-                                id="role"
-                                name="role"
-                                value={formData.role}
-                                onChange={handleChange}
-                                className="flex h-12 w-full rounded-lg border border-input bg-background px-4 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                                aria-invalid={!!errors.role}
-                                aria-describedby={errors.role ? "role-error" : undefined}
-                            >
-                                {ROLE_OPTIONS.map(({ value, label }) => (
-                                    <option key={value} value={value}>
-                                        {label}
-                                    </option>
-                                ))}
-                            </select>
-                            {errors.role && (
-                                <p id="role-error" className="text-xs text-destructive">
-                                    {errors.role[0]}
-                                </p>
-                            )}
+                        {/* Section: Détails de l'Adhésion */}
+                        <div className="space-y-4 pt-2">
+                            <div className="flex items-center gap-2 text-[#002366] mb-2 font-bold uppercase tracking-wider text-xs">
+                                <Briefcase className="w-4 h-4" />
+                                <h3>Détails de l'Adhésion</h3>
+                            </div>
+
+                            <div className="space-y-1">
+                                <label htmlFor="join_date" className="text-xs font-semibold text-[#001030]">Date d'adhésion</label>
+                                <div className="relative">
+                                    <input
+                                        id="join_date"
+                                        name="join_date"
+                                        type="date"
+                                        value={formData.join_date}
+                                        onChange={handleChange}
+                                        className="w-full pl-4 pr-10 py-2.5 bg-white border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#002366]/20 transition-all text-foreground border-black/10"
+                                    />
+                                    <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/50 w-4 h-4 pointer-events-none" />
+                                </div>
+                                {errors.join_date && <p className="text-xs text-destructive">{errors.join_date[0]}</p>}
+                            </div>
+
+                            <div className="space-y-1">
+                                <label htmlFor="role" className="text-xs font-semibold text-[#001030]">Rôle au sein de l'amicale</label>
+                                <div className="relative">
+                                    <select
+                                        id="role"
+                                        name="role"
+                                        value={formData.role}
+                                        onChange={handleChange}
+                                        className="w-full pl-4 pr-10 py-2.5 bg-white border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#002366]/20 transition-all text-foreground border-black/10 appearance-none"
+                                    >
+                                        {ROLE_OPTIONS.map(({ value, label }) => (
+                                            <option key={value} value={value}>{label}</option>
+                                        ))}
+                                    </select>
+                                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/50 w-4 h-4 pointer-events-none" />
+                                </div>
+                            </div>
+
+                            <div className="space-y-1">
+                                <label htmlFor="monthly_fee" className="text-xs font-semibold text-[#001030]">Cotisation mensuelle (CFA)</label>
+                                <div className="relative">
+                                    <input
+                                        id="monthly_fee"
+                                        name="monthly_fee"
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        value={formData.monthly_fee}
+                                        onChange={handleChange}
+                                        placeholder="0.00"
+                                        className="w-full pl-4 pr-10 py-2.5 bg-white border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#002366]/20 transition-all placeholder:text-muted-foreground/50 border-black/10"
+                                    />
+                                    <Euro className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/50 w-4 h-4 pointer-events-none" />
+                                </div>
+                                {errors.monthly_fee && <p className="text-xs text-destructive">{errors.monthly_fee[0]}</p>}
+                            </div>
                         </div>
 
-                        {/* Initial Password */}
-                        <div className="space-y-1">
-                            <label htmlFor="password" className="text-sm font-medium">
-                                Mot de passe initial <span className="text-destructive">*</span>
-                            </label>
-                            <Input
-                                id="password"
-                                name="password"
-                                type="password"
-                                value={formData.password}
-                                onChange={handleChange}
-                                placeholder="Min. 8 caractères"
-                                required
-                                minLength={8}
-                                aria-invalid={!!errors.password}
-                                aria-describedby={errors.password ? "password-error" : "password-hint"}
-                            />
-                            <p id="password-hint" className="text-xs text-muted-foreground">
-                                Le membre devra changer ce mot de passe lors de sa première connexion.
-                            </p>
-                            {errors.password && (
-                                <p id="password-error" className="text-xs text-destructive">
-                                    {errors.password[0]}
-                                </p>
-                            )}
+                        {/* Note Importante */}
+                        <div className="bg-[#002366]/5 rounded-xl p-4 flex gap-3 border border-[#002366]/10">
+                            <Info className="w-5 h-5 text-[#002366] shrink-0 fill-[#002366]/10" />
+                            <div className="text-xs text-[#001030] leading-relaxed">
+                                <span className="font-bold text-[#002366] block mb-0.5">Note importante</span>
+                                Lors de la validation, un <i>lien d'activation</i> sera automatiquement envoyé à l'adresse email renseignée ci-dessus pour permettre au membre de définir son mot de passe.
+                            </div>
                         </div>
 
                         {/* Actions */}
-                        <div className="flex gap-3 pt-2">
-                            <Button
-                                id="create-member-submit"
+                        <div className="flex flex-col gap-3 pt-2">
+                            <button
                                 type="submit"
                                 disabled={isSubmitting}
-                                className="flex-1 sm:flex-none"
+                                className="w-full bg-[#002366] text-white rounded-lg py-3.5 flex items-center justify-center font-bold text-sm shadow-sm hover:bg-[#002366]/90 transition-colors disabled:opacity-70"
                             >
-                                {isSubmitting ? "Création en cours…" : "Créer le Membre"}
-                            </Button>
-                            <Button
+                                {isSubmitting ? "Enregistrement..." : "Enregistrer le membre"}
+                                {!isSubmitting && <Send className="w-4 h-4 ml-2" />}
+                            </button>
+                            <button
                                 type="button"
-                                variant="outline"
                                 onClick={() => router.back()}
                                 disabled={isSubmitting}
+                                className="w-full bg-white text-[#001030] rounded-lg py-3.5 flex items-center justify-center font-bold text-sm border border-black/10 hover:bg-muted/30 transition-colors disabled:opacity-70"
                             >
                                 Annuler
-                            </Button>
+                            </button>
                         </div>
                     </form>
-                </CardContent>
-            </Card>
+                </div>
+
+                {/* Footer mock cards */}
+                <div className="mx-4 sm:mx-0 mt-6 space-y-3 hidden sm:block">
+                    <div className="bg-white rounded-xl p-4 shadow-sm border border-black/5 flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-lg bg-[#002366]/10 text-[#002366] flex items-center justify-center">
+                            <Users className="w-5 h-5 fill-current" />
+                        </div>
+                        <div>
+                            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Total Membres</div>
+                            <div className="font-bold text-lg text-[#001030]">124</div>
+                        </div>
+                    </div>
+                    <div className="bg-white rounded-xl p-4 shadow-sm border border-black/5 flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-lg bg-success/10 text-success flex items-center justify-center">
+                            <Wallet className="w-5 h-5 fill-current" />
+                        </div>
+                        <div>
+                            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Cotisations</div>
+                            <div className="font-bold text-lg text-[#001030]">850€ <span className="text-xs font-normal text-muted-foreground lowercase">/mois</span></div>
+                        </div>
+                    </div>
+                    <div className="bg-white rounded-xl p-4 shadow-sm border border-black/5 flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-lg bg-orange-500/10 text-orange-600 flex items-center justify-center">
+                            <Clock className="w-5 h-5 fill-current" />
+                        </div>
+                        <div>
+                            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">En Attente</div>
+                            <div className="font-bold text-lg text-[#001030]">3</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }

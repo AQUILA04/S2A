@@ -22,7 +22,7 @@ const PAGE_SIZE = 20;
 // Zod Schemas
 // ============================================================
 
-export const createMemberSchema = z.object({
+const createMemberSchema = z.object({
     first_name: z.string().min(1, "First name is required"),
     last_name: z.string().min(1, "Last name is required"),
     email: z.string().email("Invalid email format"),
@@ -35,7 +35,7 @@ export const createMemberSchema = z.object({
     password: z.string().min(8, "Initial password must be at least 8 characters"),
 });
 
-export const updateMemberSchema = z.object({
+const updateMemberSchema = z.object({
     first_name: z.string().min(1, "First name is required").optional(),
     last_name: z.string().min(1, "Last name is required").optional(),
     phone: z.string().min(1, "Phone number is required").optional(),
@@ -89,16 +89,30 @@ async function requireReadAccess(): Promise<{ id: string; role: MemberRole }> {
 // ============================================================
 
 export async function getMembers(
-    page: number = 1
+    page: number = 1,
+    search?: string,
+    filter?: string
 ): Promise<ActionResult<{ members: Member[]; totalCount: number; totalPages: number }>> {
     await requireReadAccess();
 
     const supabase = createServerSupabaseClient();
     const offset = (page - 1) * PAGE_SIZE;
 
-    const { data, error, count } = await supabase
+    let query = supabase
         .from("Members")
-        .select("*", { count: "exact" })
+        .select("*", { count: "exact" });
+
+    if (search) {
+        query = query.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`);
+    }
+
+    if (filter === "active") {
+        query = query.eq("status", "ACTIVE");
+    } else if (filter === "inactive") {
+        query = query.eq("status", "INACTIVE");
+    }
+
+    const { data, error, count } = await query
         .order("last_name", { ascending: true })
         .order("first_name", { ascending: true })
         .range(offset, offset + PAGE_SIZE - 1);
@@ -108,7 +122,7 @@ export async function getMembers(
     }
 
     const totalCount = count ?? 0;
-    const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+    const totalPages = Math.ceil(totalCount / PAGE_SIZE) || 1;
 
     return {
         data: {

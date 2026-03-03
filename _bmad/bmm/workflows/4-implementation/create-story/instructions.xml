@@ -272,6 +272,7 @@
     <template-output file="{default_output_file}">
     developer_context_section</template-output> **DEV AGENT GUARDRAILS:** <template-output file="{default_output_file}">
     technical_requirements</template-output>
+    <critical>ENSURE END-TO-END UI INTEGRATION: Every story defining new UI MUST include a specific task to integrate that UI into the global navigation (e.g., adding a menu link or dashboard entry point) so it's discoverable by the user, and explicitly require adherence to the UX Specs and design system skills.</critical>
     <template-output file="{default_output_file}">architecture_compliance</template-output>
     <template-output
       file="{default_output_file}">library_framework_requirements</template-output>

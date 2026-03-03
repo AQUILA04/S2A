@@ -275,6 +275,8 @@
     <!-- VALIDATION GATES -->
     <action>Verify ALL tests for this task/subtask ACTUALLY EXIST and PASS 100%</action>
     <action>Confirm implementation matches EXACTLY what the task/subtask specifies - no extra features</action>
+    <action>Validate that the new feature is accessible via the application's global navigation or dashboard (End-to-End UX integration)</action>
+    <action>Verify UI components built exactly match the UX specs and project design skills</action>
     <action>Validate that ALL acceptance criteria related to this task are satisfied</action>
     <action>Run full test suite to ensure NO regressions introduced</action>
 

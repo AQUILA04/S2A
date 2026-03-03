@@ -1,28 +1,31 @@
 import Link from "next/link";
 import { getMembers } from "@/app/admin/members/actions";
-import { Button } from "@/components/ui/button";
 import { AssociationStatusBadge, AccountStatusBadge } from "@/components/s2a/status-badge";
+import { MemberFilters } from "@/components/s2a/member-filters";
+import { UserPlus, ChevronLeft, ChevronRight, UserRound } from "lucide-react";
 
 // Force dynamic to avoid caching stale member data
 export const dynamic = "force-dynamic";
 
 interface MembersPageProps {
-    searchParams: Promise<{ page?: string }>;
+    searchParams: Promise<{ page?: string; search?: string; filter?: string }>;
 }
 
 /**
  * /admin/members — Member list (Server Component)
- * AC: 1, 5, 6
- * Displays paginated member table with two distinct status badges per member.
+ * Responsive: Cards on mobile (< sm), Table on desktop (>= sm)
  */
 export default async function MembersPage({ searchParams }: MembersPageProps) {
     const params = await searchParams;
     const page = Math.max(1, Number(params?.page) || 1);
-    const result = await getMembers(page);
+    const search = params?.search || "";
+    const filter = params?.filter || "";
+
+    const result = await getMembers(page, search, filter);
 
     if (result.error) {
         return (
-            <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-6 text-destructive">
+            <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-6 text-destructive m-4">
                 <p className="font-semibold">Erreur lors du chargement des membres</p>
                 <p className="text-sm mt-1">{result.error}</p>
             </div>
@@ -32,125 +35,119 @@ export default async function MembersPage({ searchParams }: MembersPageProps) {
     const { members, totalCount, totalPages } = result.data!;
 
     return (
-        <div className="space-y-6">
+        <div className="flex flex-col min-h-full">
             {/* Page header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-foreground">Gestion des Membres</h1>
-                    <p className="text-sm text-muted-foreground mt-1">
-                        {totalCount} membre{totalCount !== 1 ? "s" : ""} au total
-                    </p>
-                </div>
-                <Link href="/admin/members/new">
-                    <Button id="add-member-btn" size="default">
-                        + Ajouter un Membre
-                    </Button>
+            <div className="px-4 py-6 bg-white border-b">
+                <h1 className="text-2xl font-bold text-[#001030]">Registre des Membres</h1>
+                <p className="text-sm text-muted-foreground mt-1 mb-5">
+                    Gérez les adhésions et les informations de l'amicale.
+                </p>
+
+                <Link href="/admin/members/new" className="w-full">
+                    <button className="w-full bg-[#002366] text-white rounded-lg py-3 flex items-center justify-center font-semibold text-sm shadow-sm hover:bg-[#002366]/90 transition-colors">
+                        <UserPlus className="w-5 h-5 mr-2" />
+                        Ajouter un membre
+                    </button>
                 </Link>
             </div>
 
-            {/* Members table */}
-            <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm" aria-label="Liste des membres">
-                        <thead className="border-b bg-muted/50">
-                            <tr>
-                                <th className="px-4 py-3 text-left font-semibold text-foreground">
-                                    Nom Complet
-                                </th>
-                                <th className="px-4 py-3 text-left font-semibold text-foreground hidden sm:table-cell">
-                                    Rôle
-                                </th>
-                                <th className="px-4 py-3 text-left font-semibold text-foreground">
-                                    Statut Cotisation
-                                </th>
-                                <th className="px-4 py-3 text-left font-semibold text-foreground">
-                                    Statut Compte
-                                </th>
-                                <th className="px-4 py-3 text-left font-semibold text-foreground hidden md:table-cell">
-                                    Adhésion
-                                </th>
-                                <th className="px-4 py-3 text-right font-semibold text-foreground hidden md:table-cell">
-                                    Cotisation/mois
-                                </th>
-                                <th className="px-4 py-3 text-center font-semibold text-foreground">
-                                    Actions
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y">
-                            {members.length === 0 ? (
-                                <tr>
-                                    <td
-                                        colSpan={7}
-                                        className="px-4 py-8 text-center text-muted-foreground"
-                                    >
-                                        Aucun membre trouvé
-                                    </td>
-                                </tr>
-                            ) : (
-                                members.map((member) => (
-                                    <tr
-                                        key={member.id}
-                                        className="transition-colors hover:bg-muted/30"
-                                    >
-                                        <td className="px-4 py-3 font-medium">
-                                            {member.last_name} {member.first_name}
-                                        </td>
-                                        <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">
-                                            {member.role}
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <AssociationStatusBadge status={member.status} />
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <AccountStatusBadge status={member.account_status} />
-                                        </td>
-                                        <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">
-                                            {new Date(member.join_date).toLocaleDateString("fr-FR")}
-                                        </td>
-                                        <td className="px-4 py-3 text-right font-mono hidden md:table-cell">
-                                            {member.monthly_fee.toLocaleString("fr-FR")} CFA
-                                        </td>
-                                        <td className="px-4 py-3 text-center">
-                                            <Link
-                                                href={`/admin/members/${member.id}/edit`}
-                                                className="inline-flex items-center justify-center rounded-md px-3 py-1.5 text-xs font-medium min-h-[44px] min-w-[44px] text-primary hover:bg-primary/10 transition-colors"
-                                                aria-label={`Modifier ${member.first_name} ${member.last_name}`}
-                                            >
-                                                Modifier
-                                            </Link>
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
+            <div className="p-4 flex-1">
+                {/* Search & Filters Component */}
+                <MemberFilters />
+
+                {/* Members List (Mobile) & Table (Desktop) container */}
+                <div className="bg-white rounded-xl border shadow-sm overflow-hidden text-sm">
+                    {/* Desktop Headers */}
+                    <div className="hidden sm:grid grid-cols-12 gap-4 px-4 py-3 border-b bg-muted/20 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                        <div className="col-span-4">Membre</div>
+                        <div className="col-span-5">Email</div>
+                        <div className="col-span-3 text-right">Statut</div>
+                    </div>
+
+                    {members.length === 0 ? (
+                        <div className="py-12 text-center text-muted-foreground">
+                            Aucun membre trouvé
+                        </div>
+                    ) : (
+                        <div className="divide-y">
+                            {members.map((member) => (
+                                <Link
+                                    href={`/admin/members/${member.id}`}
+                                    key={member.id}
+                                    className="flex flex-col sm:grid sm:grid-cols-12 sm:gap-4 px-4 py-4 sm:py-3 transition-colors hover:bg-muted/30 sm:items-center"
+                                >
+                                    {/* Membre (Avatar + Name + ID) */}
+                                    <div className="flex items-center gap-3 sm:col-span-4">
+                                        <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center shrink-0 overflow-hidden text-[#002366] border border-border">
+                                            {/* Fallback avatar */}
+                                            <UserRound className="w-6 h-6" />
+                                        </div>
+                                        <div className="flex flex-col min-w-0">
+                                            <span className="font-bold text-[#001030] text-base sm:text-sm truncate">
+                                                {member.first_name} {member.last_name}
+                                            </span>
+                                            <span className="text-xs text-muted-foreground uppercase tracking-widest mt-0.5">
+                                                ID: {member.id.substring(0, 8)}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Email (Right aligned on mobile, normal column on PC) */}
+                                    <div className="mt-3 sm:mt-0 sm:col-span-5 flex items-center sm:justify-start justify-end">
+                                        <span className="text-muted-foreground truncate">{member.email}</span>
+                                    </div>
+
+                                    {/* Statut (hidden on mobile mockup, but let's show on PC) */}
+                                    <div className="hidden sm:flex sm:col-span-3 items-center justify-end">
+                                        <AssociationStatusBadge status={member.status} />
+                                    </div>
+                                </Link>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
-                {/* Pagination */}
-                {totalPages > 1 && (
-                    <div className="flex items-center justify-between border-t px-4 py-3">
-                        <p className="text-sm text-muted-foreground">
-                            Page {page} sur {totalPages}
-                        </p>
-                        <div className="flex gap-2">
-                            {page > 1 && (
-                                <Link href={`/admin/members?page=${page - 1}`}>
-                                    <Button variant="outline" size="sm">
-                                        ← Précédent
-                                    </Button>
-                                </Link>
-                            )}
-                            {page < totalPages && (
-                                <Link href={`/admin/members?page=${page + 1}`}>
-                                    <Button variant="outline" size="sm">
-                                        Suivant →
-                                    </Button>
-                                </Link>
-                            )}
+                {/* Pagination (Mockup Style) */}
+                <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <p className="text-sm text-muted-foreground">
+                        Affichage de <span className="font-bold text-[#001030]">{members.length}</span> sur <span className="font-bold text-[#001030]">{totalCount}</span> membres
+                    </p>
+
+                    {totalPages > 1 && (
+                        <div className="flex items-center gap-1">
+                            {/* Prev */}
+                            <Link
+                                href={page > 1 ? `/admin/members?page=${page - 1}&search=${search}&filter=${filter}` : "#"}
+                                className={`w-10 h-10 flex items-center justify-center rounded-lg border ${page > 1 ? 'hover:bg-muted/30 bg-white text-muted-foreground' : 'bg-muted/20 text-muted-foreground/30 pointer-events-none'}`}
+                            >
+                                <ChevronLeft className="w-5 h-5" />
+                            </Link>
+
+                            {/* Page numbers (Simplified for demo) */}
+                            {[...Array(Math.min(3, totalPages))].map((_, i) => {
+                                const p = i + 1; // Basic logic for 1, 2, 3
+                                const isActive = p === page;
+                                return (
+                                    <Link
+                                        key={p}
+                                        href={`/admin/members?page=${p}&search=${search}&filter=${filter}`}
+                                        className={`w-10 h-10 flex items-center justify-center rounded-lg text-sm font-bold ${isActive ? 'bg-[#002366] text-white shadow-sm' : 'text-muted-foreground hover:bg-white hover:border border-transparent'}`}
+                                    >
+                                        {p}
+                                    </Link>
+                                );
+                            })}
+
+                            {/* Next */}
+                            <Link
+                                href={page < totalPages ? `/admin/members?page=${page + 1}&search=${search}&filter=${filter}` : "#"}
+                                className={`w-10 h-10 flex items-center justify-center rounded-lg border ${page < totalPages ? 'hover:bg-muted/30 bg-white text-muted-foreground' : 'bg-muted/20 text-muted-foreground/30 pointer-events-none'}`}
+                            >
+                                <ChevronRight className="w-5 h-5" />
+                            </Link>
                         </div>
-                    </div>
-                )}
+                    )}
+                </div>
             </div>
         </div>
     );

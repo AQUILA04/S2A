@@ -88,10 +88,11 @@
     <!-- Code Quality Deep Dive -->
     <action>For EACH file in comprehensive review list:
       1. **Security**: Look for injection risks, missing validation, auth issues
-      2. **Performance**: N+1 queries, inefficient loops, missing caching
-      3. **Error Handling**: Missing try/catch, poor error messages
-      4. **Code Quality**: Complex functions, magic numbers, poor naming
-      5. **Test Quality**: Are tests real assertions or placeholders?
+      2. **UX/UI Integration Check**: Is the feature actually accessible from the main app navigation? Does it visually match the UX specs or design system skills? (If isolated/orphaned route → HIGH finding)
+      3. **Performance**: N+1 queries, inefficient loops, missing caching
+      4. **Error Handling**: Missing try/catch, poor error messages
+      5. **Code Quality**: Complex functions, magic numbers, poor naming
+      6. **Test Quality**: Are tests real assertions or placeholders?
     </action>
 
     <check if="total_issues_found lt 3">

@@ -1,19 +1,14 @@
 import * as React from "react";
 import { MainNav } from "@/components/s2a/main-nav";
 
-// ============================================================
-// Admin Layout (Task 3 / Global UI Refinement)
-// Responsive: MainNav handles sidebar vs bottom tab-bar
-// ============================================================
-
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
     return (
         <>
             <div className="min-h-screen bg-muted/30">
                 {/* === TOP HEADER === */}
                 <header className="sticky top-0 z-40 border-b bg-card shadow-sm h-14 flex items-center px-4">
                     <span className="text-sm font-bold uppercase tracking-widest text-primary">
-                        S2A — Espace Admin
+                        Amicale S2A
                     </span>
                 </header>
 
@@ -25,7 +20,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
                     {/* === MAIN CONTENT === */}
                     <main className="flex-1 pb-20 md:pb-6">
-                        <div className="mx-auto max-w-5xl px-4 py-6">
+                        <div className="mx-auto max-w-5xl">
                             {children}
                         </div>
                     </main>
