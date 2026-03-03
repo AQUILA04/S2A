@@ -2,7 +2,7 @@ import NextAuth, { type AuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { createServerSupabaseClient } from "@/lib/supabase/client";
 import { credentialsSchema, verifyPassword } from "@/lib/auth/helpers";
-import type { MemberRole } from "@/types/database.types";
+import type { Member, MemberRole } from "@/types/database.types";
 
 // ============================================================
 // [H1] [M2] Startup validation — fail fast if required secrets are absent.
@@ -57,21 +57,27 @@ export const authOptions: AuthOptions = {
 
                 // 2. Fetch member from Supabase (server-side only)
                 const supabase = createServerSupabaseClient();
-                const { data: member, error } = await supabase
+                const { data: rawMember, error } = await supabase
                     .from("Members")
-                    .select("id, email, first_name, last_name, role, status, password_hash")
+                    .select("id, email, first_name, last_name, role, status, account_status, password_hash")
                     .eq("email", email)
                     .single();
+
+                // Cast to the expected shape — the select fields exactly match this Pick<>
+                const member = rawMember as Pick<
+                    Member,
+                    "id" | "email" | "first_name" | "last_name" | "role" | "status" | "account_status" | "password_hash"
+                > | null;
 
                 if (error || !member) {
                     // Generic error to prevent email enumeration
                     throw new Error("Invalid email or password");
                 }
 
-                // 3. Check account status
-                // [H2] Return the same generic message for INACTIVE accounts —
-                // a specific "inactive" response leaks that the email is valid.
-                if (member.status === "INACTIVE") {
+                // 3. Check both statuses — generic error prevents email enumeration [H2]
+                // account_status: PENDING_ACTIVATION = member has not yet set their password via activation link
+                // status: INACTIVE = member has ≥24 months of unpaid dues
+                if (member.account_status === "PENDING_ACTIVATION" || member.status === "INACTIVE") {
                     throw new Error("Invalid email or password");
                 }
 

@@ -40,8 +40,9 @@ The Amicale S2A platform is designed as a **Mobile-First Web Application** using
 * `email`, `phone`: String (Unique)
 * `join_date`: Date (Critical for debt calculation start)
 * `monthly_fee`: Decimal (The specific rate assigned at creation)
-* `status`: Enum (`ACTIVE`, `INACTIVE`)
-* `role`: Enum (`MEMBER`, `PRESIDENT`, `SG`, `TREASURER`, `ADJOINT`)
+* `status`: Enum (`ACTIVE`, `INACTIVE`) — Association/cotisation status
+* `account_status`: Enum (`PENDING_ACTIVATION`, `ACTIVE`) — User login state
+* `role`: Enum (`MEMBER`, `PRESIDENT`, `SG`, `SG_ADJOINT`, `TREASURER`, `TRESORIER_ADJOINT`)
 * `created_at_app`: Timestamp
 
 ### 3.2 `Contributions` Table
@@ -122,8 +123,9 @@ This server-side function is the heart of the application. It must be executed w
 
 * **RBAC (Role-Based Access Control)**:
 * `MEMBER`: Read-only access to personal dashboard and published reports.
-* `TREASURER/PRESIDENT`: Write access to `Contributions` (Validation) and `Expenses`.
-* `SG`: Write access to `Members` and `GAs`.
+  * `SG` / `SG_ADJOINT`: Write access to `Members` and `GAs` + Settings.
+  * `TREASURER` / `TRESORIER_ADJOINT`: Write access to `Contributions` (Validation) and `Expenses` + Settings.
+  * `PRESIDENT`: Full access — inherits all SG and TREASURER rights (`PRESIDENT` = SG + TREASURER).
 
 
 * **Audit Middleware**: Every `POST`, `PUT`, or `DELETE` request from an EB member must be intercepted by a logging service to populate the `AuditLogs` table.

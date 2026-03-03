@@ -4,14 +4,19 @@
  * Run `npm run db:generate-types` to regenerate from a live Supabase instance.
  */
 
+/** Membership / cotisation status. Set automatically by the balance engine. */
 export type MemberStatus = "ACTIVE" | "INACTIVE";
+
+/** User account / login status. Set at member creation; activated via invitation link. */
+export type AccountStatus = "PENDING_ACTIVATION" | "ACTIVE";
 
 export type MemberRole =
     | "MEMBER"
-    | "PRESIDENT"
-    | "SG"
-    | "TREASURER"
-    | "ADJOINT";
+    | "PRESIDENT"          // Full rights: SG + TREASURER + all admin settings
+    | "SG"                 // Secrétaire Général — write access to Members & Settings
+    | "SG_ADJOINT"         // Deputy SG — same rights as SG
+    | "TREASURER"          // Trésorier — write access to Contributions, Validation & Settings
+    | "TRESORIER_ADJOINT"; // Deputy Treasurer — same rights as TREASURER
 
 export type PaymentChannel =
     | "CASH"
@@ -29,7 +34,10 @@ export interface Member {
     phone: string;
     join_date: string; // ISO date string "YYYY-MM-DD"
     monthly_fee: number;
+    /** Association/cotisation status — ACTIVE (paying) or INACTIVE (≥24 months arrears) */
     status: MemberStatus;
+    /** User account login status — PENDING_ACTIVATION (not yet set password) or ACTIVE (can log in) */
+    account_status: AccountStatus;
     role: MemberRole;
     password_hash: string;
     created_at_app: string; // ISO timestamp
@@ -149,6 +157,7 @@ export interface Database {
         };
         Enums: {
             member_status: MemberStatus;
+            account_status: AccountStatus;
             member_role: MemberRole;
             payment_channel: PaymentChannel;
             contribution_status: ContributionStatus;

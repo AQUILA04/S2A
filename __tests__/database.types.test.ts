@@ -12,6 +12,7 @@ import type {
     AuditLog,
     AuditMetadata,
     MemberStatus,
+    AccountStatus,
     MemberRole,
     PaymentChannel,
     ContributionStatus,
@@ -34,13 +35,26 @@ describe("Database Types - MemberStatus enum values", () => {
     });
 });
 
+describe("Database Types - AccountStatus enum values", () => {
+    it("should accept PENDING_ACTIVATION as a valid AccountStatus", () => {
+        const status: AccountStatus = "PENDING_ACTIVATION";
+        expect(status).toBe("PENDING_ACTIVATION");
+    });
+
+    it("should accept ACTIVE as a valid AccountStatus", () => {
+        const status: AccountStatus = "ACTIVE";
+        expect(status).toBe("ACTIVE");
+    });
+});
+
 describe("Database Types - MemberRole enum values", () => {
     const validRoles: MemberRole[] = [
         "MEMBER",
         "PRESIDENT",
         "SG",
+        "SG_ADJOINT",
         "TREASURER",
-        "ADJOINT",
+        "TRESORIER_ADJOINT",
     ];
 
     validRoles.forEach((role) => {
@@ -90,6 +104,7 @@ describe("Database Types - Member interface structure", () => {
             join_date: "2016-01-01",
             monthly_fee: 0,
             status: "ACTIVE",
+            account_status: "ACTIVE",
             role: "SG",
             password_hash: "$2b$12$hashedpassword",
             created_at_app: "2026-01-01T00:00:00.000Z",
@@ -99,6 +114,7 @@ describe("Database Types - Member interface structure", () => {
         expect(member.email).toBe("gs@amicale-s2a.org");
         expect(member.role).toBe("SG");
         expect(member.status).toBe("ACTIVE");
+        expect(member.account_status).toBe("ACTIVE");
         expect(member.join_date).toBe("2016-01-01");
         expect(member.monthly_fee).toBeGreaterThanOrEqual(0);
     });

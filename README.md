@@ -42,9 +42,12 @@ cp .env.example .env.local
 
 ## Base de données
 
-### 1. Appliquer la migration initiale
+### 1. Appliquer les migrations
 
-Copier et exécuter le contenu de `supabase/migrations/V001__initial_schema.sql` dans le **SQL Editor** du dashboard Supabase.
+Copier et exécuter dans le **SQL Editor** du dashboard Supabase, dans l'ordre :
+
+1. `supabase/migrations/V001__initial_schema.sql` — schéma initial
+2. `supabase/migrations/V002__rbac_and_account_status.sql` — statut compte utilisateur & rôles affinés
 
 ### 2. Créer le compte administrateur (GS)
 
@@ -109,11 +112,12 @@ Couverture actuelle : **43 tests** sur 3 suites (`auth`, `seed`, `database.types
 
 | Rôle | Description |
 |---|---|
-| `MEMBER` | Membre standard |
-| `SG` | Secrétaire Général — accès complet |
-| `PRESIDENT` | Président |
-| `TREASURER` | Trésorier |
-| `ADJOINT` | Adjoint |
+| `MEMBER` | Membre standard — accès lecture seule |
+| `SG` | Secrétaire Général — gestion des membres & paramètres |
+| `SG_ADJOINT` | Adjoint SG — mêmes droits que SG |
+| `TREASURER` | Trésorier — validation des paiements & dépenses |
+| `TRESORIER_ADJOINT` | Adjoint Trésorier — mêmes droits que TREASURER |
+| `PRESIDENT` | Président — hérite de tous les droits (SG + TREASURER) |
 
 Le rôle est encodé dans le JWT à la connexion et disponible via `session.user.role`.
 

@@ -72,6 +72,40 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 - **L2** : accès `session.user.name` sans optional chaining → corrigé
 - **L3** : codes d'erreur NextAuth bruts affichés → mappés en messages français
 
+## [0.2.0] — 2026-03-03 · Story 1.2: Member Management (CRUD)
+
+### Ajouté
+
+#### Base de données
+- Migration `supabase/migrations/V002__rbac_and_account_status.sql` :
+  - Nouveau type enum `account_status` (`PENDING_ACTIVATION`, `ACTIVE`)
+  - Types de rôles redéfinis (`SG_ADJOINT` au lieu de `ADJOINT`, ajout de `TRESORIER_ADJOINT`)
+
+#### Interface Utilisateur et Composants
+- Layout du dashboard admin : `app/admin/layout.tsx` (Sidebar + Bottom Nav Responsive)
+- Liste paginée des membres : `app/admin/members/page.tsx`
+- Formulaires de création et de modification de membre avec validations client/serveur : `app/admin/members/new/page.tsx`, `app/admin/members/[id]/edit/page.tsx`
+- Nouveau composant partagé : `components/s2a/status-badge.tsx`
+
+#### Serveur & Logique Métier
+- Server Actions CRUD (`getMembers`, `createMember`, `updateMember`, `getMemberById`) via `app/admin/members/actions.ts`
+- Écriture d'`AuditLogs` documentée pour les mutations CRUD des membres
+- Protection conditionnelle avec Zod Validator dans les Server Actions.
+
+#### Sécurité et Authentification
+- Sécurisation du `app/api/auth/[...nextauth]/route.ts` contre la connexion de comptes non activés (statuts bloqués sur `PENDING_ACTIVATION` ou `INACTIVE`)
+- `middleware.ts` basé sur token JWT limitant l'accès `/admin/*` aux rôles : SG, SG_ADJOINT, TRESORIER, TRESORIER_ADJOINT, PRESIDENT
+
+#### Tests
+- Suite complète de 14 tests pour les actions Serveur et les contraintes Supabase (`__tests__/members.actions.test.ts`)
+- Mocks complets pour la session `next-auth` et le client Supabase
+- Tests unitaires de la validation Zod, du mapping AuditLogs, et des contraintes d'interdiction de connexion pour le TRESORIER.
+
+### Review de code (AI)
+- **H1 (Atomicité)** : Révision de l'atomicité des Server Actions — la documentation a été corrigée pour indiquer l'écriture séquentielle de l'`update()` puis de l'`AuditLog`
+- **H2 (Synchronisation Git/Story)** : Les fichiers de migration et middleware ayant clarifié la distinction entre `account_status` (connexion) et `status` (cotisation) ont été formellement validés et reportés dans le tracking du composant de la doc de conception. 
+- **M1 (Tests unitaires)** : Assertions strictes ajoutées sur le mapping correct des valeurs de la mutation lors de la structuration de la paie (`old_value` et `new_value`) dans l'objet `AuditLogs`.
+
 ---
 
-*Prochaine version : [0.2.0] — Story 1.2: Member Management CRUD*
+*Prochaine version : [0.3.0] — Story 1.3: Role-Based Authentication*

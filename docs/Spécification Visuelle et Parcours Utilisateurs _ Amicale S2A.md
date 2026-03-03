@@ -1,6 +1,6 @@
 # 🎨 Spécification Visuelle et Parcours Utilisateurs : Amicale S2A
 
-**Auteur :** Manus, Directeur Artistique & Designer Produit
+**Auteur :** Directeur Artistique & Designer Produit
 **Date :** 02 Mars 2026
 **Version :** 1.0
 
