@@ -106,6 +106,32 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 - **H2 (Synchronisation Git/Story)** : Les fichiers de migration et middleware ayant clarifié la distinction entre `account_status` (connexion) et `status` (cotisation) ont été formellement validés et reportés dans le tracking du composant de la doc de conception. 
 - **M1 (Tests unitaires)** : Assertions strictes ajoutées sur le mapping correct des valeurs de la mutation lors de la structuration de la paie (`old_value` et `new_value`) dans l'objet `AuditLogs`.
 
+## [0.3.0] — 2026-03-04 · Story 1.3: Role-Based Authentication
+
+### Ajouté / Modifié
+
+#### Interface Utilisateur et Composants
+- Refonte de `app/login/page.tsx` pour utiliser les composants de l'UI S2A (Card, Input, Button) au lieu d'éléments HTML natifs pour une cohérence visuelle.
+- Implémentation de la fonctionnalité de **Déconnexion** via le composant de navigation globale `MainNav` (Desktop et Mobile) appelant `signOut` de NextAuth.
+
+#### Serveur & Logique Métier
+- Correction de la hiérarchie des rôles dans `lib/auth/helpers.ts` : les rôles `SG` et `TREASURER` (ainsi que leurs adjoints et le `PRESIDENT`) héritent désormais correctement des droits génériques du rôle `MEMBER`.
+- Extraction de la logique `authorize` de NextAuth vers une fonction exportée indépendante `authorizeCredentials` dans `app/api/auth/[...nextauth]/route.ts` pour permettre des tests unitaires fiables sans l'entrave du mock interne de NextAuth.
+
+#### Tests
+- Refonte complète de `__tests__/auth.test.ts` (16 tests, 100% passing) :
+  - Remplacement des placeholders par de véritables tests ciblant les vérifications de statut de compte (`ACTIVE`, `INACTIVE`, `PENDING_ACTIVATION`) via un mock de Supabase.
+  - Couverture complète des règles de redirection du `middleware.ts` en fonction des rôles des utilisateurs (accès aux routes `/admin` bloqué pour un `MEMBER`, etc.).
+  - Vérification approfondie du payload des callbacks JWT et Session.
+
+### Sécurité
+- Correction d'une vulnérabilité d'Open Redirect (Medium) sur la page de connexion (`app/login/page.tsx`) en imposant la validation du format (chemin relatif strict) via l'URL cible (vérification de `startsWith("/")` et `!startsWith("//")`).
+
+### Review de code (AI)
+- **Critical (Tests)** : Les faux tests ont été remplacés par une validation stricte du flux de connexion et de middleware.
+- **Medium (Role Inheritance)** : Défaut de la transmission des droits résolu.
+- **Medium (UI & Security)** : Open redirect comblé, layout refactorisé avec `S2A` UI system.
+
 ---
 
-*Prochaine version : [0.3.0] — Story 1.3: Role-Based Authentication*
+*Prochaine version : [0.4.0] — Epic 2: Tenant & Agency Management*

@@ -43,7 +43,7 @@ development_status:
   epic-1: in-progress
   1-1-system-initialization-and-super-admin: done
   1-2-member-management-crud: done
-  1-3-role-based-authentication: backlog
+  1-3-role-based-authentication: review
   1-4-legacy-data-import-tool: backlog
   1-5-audit-logging-middleware: backlog
   epic-1-retrospective: optional

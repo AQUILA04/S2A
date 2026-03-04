@@ -3,9 +3,15 @@
 import { signIn } from "next-auth/react";
 import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 
-// [L3] Map NextAuth internal error codes to user-friendly French messages
-// instead of exposing raw technical strings.
+// ============================================================
+// Map NextAuth internal error codes to French user-friendly messages.
+// Generic phrasing prevents leaking whether an account exists.
+// ============================================================
 const AUTH_ERROR_MESSAGES: Record<string, string> = {
     CredentialsSignin: "Identifiants incorrects. Veuillez réessayer.",
     SessionRequired: "Vous devez être connecté pour accéder à cette page.",
@@ -16,9 +22,24 @@ function getErrorMessage(error: string): string {
     return AUTH_ERROR_MESSAGES[error] ?? AUTH_ERROR_MESSAGES.Default;
 }
 
+import { Suspense } from "react";
+
 export default function LoginPage() {
+    return (
+        <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-muted/30">Chargement...</div>}>
+            <LoginForm />
+        </Suspense>
+    );
+}
+
+function LoginForm() {
     const router = useRouter();
-    const [error, setError] = useState<string | null>(null);
+    const searchParams = useSearchParams();
+    const [error, setError] = useState<string | null>(() => {
+        // Handle error from NextAuth redirect (e.g., after server-side block)
+        const urlError = searchParams.get("error");
+        return urlError ? getErrorMessage(urlError) : null;
+    });
     const [loading, setLoading] = useState(false);
 
     async function handleSubmit(e: FormEvent<HTMLFormElement>) {
@@ -39,78 +60,95 @@ export default function LoginPage() {
         setLoading(false);
 
         if (result?.error) {
-            // [L3] Map internal error code to a French user-friendly message
+            // Map internal error code to a French user-friendly message
             setError(getErrorMessage(result.error));
         } else {
-            router.push("/dashboard");
+            // Redirect to callbackUrl if provided (e.g., from middleware), else dashboard
+            let callbackUrl = searchParams.get("callbackUrl") ?? "/dashboard";
+            // Prevent open redirect by ensuring it's a valid relative path
+            if (!callbackUrl.startsWith("/") || callbackUrl.startsWith("//")) {
+                callbackUrl = "/dashboard";
+            }
+            router.push(callbackUrl);
             router.refresh();
         }
     }
 
     return (
-        <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
-            <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8">
-                <div className="mb-8 text-center">
-                    <h1 className="text-3xl font-bold text-gray-900">Amicale S2A</h1>
-                    <p className="mt-2 text-sm text-gray-500">
+        <main className="flex min-h-screen items-center justify-center bg-muted/30 px-4">
+            <Card className="w-full max-w-sm rounded-2xl shadow-md p-2">
+                {/* Logo + Title */}
+                <CardHeader className="text-center pb-6">
+                    <span className="inline-block text-xs font-bold uppercase tracking-widest text-primary mb-4">
+                        Amicale
+                    </span>
+                    <CardTitle className="text-2xl font-bold text-foreground">S2A</CardTitle>
+                    <p className="mt-2 text-sm text-muted-foreground">
                         Connexion à votre espace de gestion
                     </p>
-                </div>
+                </CardHeader>
 
-                <form onSubmit={handleSubmit} className="space-y-5">
-                    {error && (
-                        <div
-                            role="alert"
-                            className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700"
-                        >
-                            {error}
+                <CardContent>
+                    <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+                        {/* Error message — uses role="alert" for screen reader accessibility */}
+                        {error && (
+                            <div
+                                role="alert"
+                                aria-live="polite"
+                                className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+                            >
+                                {error}
+                            </div>
+                        )}
+
+                        {/* Email field */}
+                        <div className="space-y-1.5">
+                            <label
+                                htmlFor="email"
+                                className="block text-sm font-medium text-foreground"
+                            >
+                                Adresse email
+                            </label>
+                            <Input
+                                id="email"
+                                name="email"
+                                type="email"
+                                autoComplete="email"
+                                required
+                                aria-required="true"
+                                placeholder="gs@amicale-s2a.org"
+                            />
                         </div>
-                    )}
 
-                    <div>
-                        <label
-                            htmlFor="email"
-                            className="block text-sm font-medium text-gray-700 mb-1"
+                        {/* Password field */}
+                        <div className="space-y-1.5">
+                            <label
+                                htmlFor="password"
+                                className="block text-sm font-medium text-foreground"
+                            >
+                                Mot de passe
+                            </label>
+                            <Input
+                                id="password"
+                                name="password"
+                                type="password"
+                                autoComplete="current-password"
+                                required
+                                aria-required="true"
+                            />
+                        </div>
+
+                        {/* Submit button */}
+                        <Button
+                            type="submit"
+                            disabled={loading}
+                            className="w-full h-12"
                         >
-                            Adresse email
-                        </label>
-                        <input
-                            id="email"
-                            name="email"
-                            type="email"
-                            autoComplete="email"
-                            required
-                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            placeholder="gs@amicale-s2a.org"
-                        />
-                    </div>
-
-                    <div>
-                        <label
-                            htmlFor="password"
-                            className="block text-sm font-medium text-gray-700 mb-1"
-                        >
-                            Mot de passe
-                        </label>
-                        <input
-                            id="password"
-                            name="password"
-                            type="password"
-                            autoComplete="current-password"
-                            required
-                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        />
-                    </div>
-
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                        {loading ? "Connexion en cours..." : "Se connecter"}
-                    </button>
-                </form>
-            </div>
+                            {loading ? "Connexion en cours..." : "Se connecter"}
+                        </Button>
+                    </form>
+                </CardContent>
+            </Card>
         </main>
     );
 }

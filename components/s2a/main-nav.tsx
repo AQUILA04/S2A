@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Users, Wallet, Settings } from "lucide-react";
+import { signOut } from "next-auth/react";
+import { Home, Users, Wallet, Settings, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ============================================================
@@ -43,6 +44,16 @@ export function MainNav() {
                         );
                     })}
                 </nav>
+
+                <div className="absolute bottom-4 w-full px-4">
+                    <button
+                        onClick={() => signOut({ callbackUrl: "/login" })}
+                        className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors"
+                    >
+                        <LogOut className="h-5 w-5" aria-hidden="true" />
+                        Déconnexion
+                    </button>
+                </div>
             </aside>
 
             {/* === BOTTOM TAB-BAR (mobile <768px) === */}
@@ -70,6 +81,13 @@ export function MainNav() {
                             </Link>
                         );
                     })}
+                    <button
+                        onClick={() => signOut({ callbackUrl: "/login" })}
+                        className="flex min-w-[64px] flex-col items-center gap-1 px-2 py-1 text-[10px] sm:text-xs text-destructive hover:text-destructive/80 font-medium transition-colors"
+                    >
+                        <LogOut className="h-6 w-6 stroke-2" aria-hidden="true" />
+                        <span className="uppercase tracking-wide">Quitter</span>
+                    </button>
                 </div>
             </nav>
         </>
