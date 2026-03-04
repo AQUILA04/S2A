@@ -1,6 +1,6 @@
 #!/usr/bin/env ts-node
 /**
- * Seed Script: Initialize Primary General Secretary (GS) Account
+ * Seed Script: Initialize Primary Accounts (GS, Treasurer, Deputy Treasurer)
  *
  * Usage:
  *   npm run seed
@@ -16,27 +16,71 @@ import * as bcrypt from "bcryptjs";
 import { createClient } from "@supabase/supabase-js";
 import * as dotenv from "dotenv";
 import * as path from "path";
-import type { Database, MemberRole, MemberStatus } from "../types/database.types";
+import type { Database, MemberRole, MemberStatus, AccountStatus } from "../types/database.types";
 
 // Load environment from .env.local
 dotenv.config({ path: path.resolve(__dirname, "../.env.local") });
 
 // ============================================================
-// Configuration
+// Configuration — accounts to seed
 // ============================================================
 
-const GS_SEED_CONFIG = {
-    first_name: "Admin",
-    last_name: "GS",
-    email: "gs@amicale-s2a.org",
-    phone: "+0000000000",
-    join_date: "2016-01-01",
-    monthly_fee: 0, // GS is not subject to monthly fees
-    status: "ACTIVE" as MemberStatus,
-    role: "SG" as MemberRole,
-    // IMPORTANT: Change this password immediately after first login!
-    initial_password: process.env.GS_SEED_PASSWORD || "Change-Me-Now-2026!",
-} as const;
+interface SeedAccount {
+    first_name: string;
+    last_name: string;
+    email: string;
+    phone: string;
+    join_date: string;
+    monthly_fee: number;
+    status: MemberStatus;
+    account_status: AccountStatus;
+    role: MemberRole;
+    initial_password: string;
+    /** Label used in console output */
+    label: string;
+}
+
+const SEED_ACCOUNTS: SeedAccount[] = [
+    {
+        label: "SG (Secrétaire Général)",
+        first_name: "Admin",
+        last_name: "GS",
+        email: "gs@amicale-s2a.org",
+        phone: "+0000000000",
+        join_date: "2016-01-01",
+        monthly_fee: 0,
+        status: "ACTIVE",
+        account_status: "ACTIVE",
+        role: "SG",
+        initial_password: process.env.GS_SEED_PASSWORD || "Change-Me-Now-2026!",
+    },
+    {
+        label: "Trésorier",
+        first_name: "Admin",
+        last_name: "Tresorier",
+        email: "tresorier@amicale-s2a.org",
+        phone: "+0000000001",
+        join_date: "2016-01-01",
+        monthly_fee: 0,
+        status: "ACTIVE",
+        account_status: "ACTIVE",
+        role: "TREASURER",
+        initial_password: process.env.TREASURER_SEED_PASSWORD || "Change-Me-Now-2026!",
+    },
+    {
+        label: "Trésorier Adjoint",
+        first_name: "Admin",
+        last_name: "TresorierAdjoint",
+        email: "tresorier-adjoint@amicale-s2a.org",
+        phone: "+0000000002",
+        join_date: "2016-01-01",
+        monthly_fee: 0,
+        status: "ACTIVE",
+        account_status: "ACTIVE",
+        role: "TRESORIER_ADJOINT",
+        initial_password: process.env.TRESORIER_ADJOINT_SEED_PASSWORD || "Change-Me-Now-2026!",
+    },
+];
 
 // ============================================================
 // Helper: Validate environment
@@ -73,11 +117,93 @@ async function hashPassword(plaintext: string): Promise<string> {
 }
 
 // ============================================================
+// Helper: Seed a single account (idempotent)
+// ============================================================
+
+async function seedAccount(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    supabase: any,
+    account: SeedAccount
+): Promise<void> {
+    console.log(`\n── ${account.label} ──`);
+
+    // Check for existing account (idempotency guard)
+    const { data: existing, error: lookupError } = await supabase
+        .from("Members")
+        .select("id, email, role")
+        .eq("email", account.email)
+        .single();
+
+    if (lookupError && lookupError.code !== "PGRST116") {
+        // PGRST116 = "No rows found" — anything else is a real error
+        throw new Error(
+            `❌ Failed to check for existing ${account.label} account: ${lookupError.message}`
+        );
+    }
+
+    if (existing) {
+        console.log(`   ✅ Already exists (id: ${existing.id}) — skipped.`);
+        return;
+    }
+
+    // Hash the initial password
+    console.log(`   🔐 Hashing password...`);
+    const passwordHash = await hashPassword(account.initial_password);
+
+    // Insert the account
+    console.log(`   📝 Inserting into Members table...`);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: newMember, error: insertError } = await (supabase.from("Members") as any)
+        .insert({
+            first_name: account.first_name,
+            last_name: account.last_name,
+            email: account.email,
+            phone: account.phone,
+            join_date: account.join_date,
+            monthly_fee: account.monthly_fee,
+            status: account.status,
+            account_status: account.account_status,
+            role: account.role,
+            password_hash: passwordHash,
+        })
+        .select()
+        .single();
+
+    if (insertError) {
+        throw new Error(`❌ Failed to insert ${account.label}: ${insertError.message}`);
+    }
+
+    // Write audit log
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: auditError } = await (supabase.from("AuditLogs") as any).insert({
+        actor_id: newMember.id,
+        action_type: "SYSTEM_INITIALIZATION",
+        metadata: {
+            new_value: {
+                event: `${account.label} account seeded during system initialization`,
+                member_email: newMember.email,
+                member_role: newMember.role,
+                seeded_at: new Date().toISOString(),
+            },
+        },
+    });
+
+    if (auditError) {
+        console.warn(`   ⚠️  Audit log write failed (non-fatal): ${auditError.message}`);
+    }
+
+    console.log(`   ✅ Created successfully!`);
+    console.log(`      ID    : ${newMember.id}`);
+    console.log(`      Email : ${newMember.email}`);
+    console.log(`      Role  : ${newMember.role}`);
+}
+
+// ============================================================
 // Main seed function
 // ============================================================
 
 async function seed(): Promise<void> {
-    console.log("🌱 Starting S2A database seed...\n");
+    console.log("🌱 Starting S2A database seed...");
 
     // 1. Validate environment
     const { url, serviceKey } = validateEnvironment();
@@ -90,88 +216,21 @@ async function seed(): Promise<void> {
         },
     });
 
-    // 3. Check if GS account already exists (idempotency guard)
-    const { data: existing, error: lookupError } = await supabase
-        .from("Members")
-        .select("id, email, role")
-        .eq("email", GS_SEED_CONFIG.email)
-        .single();
-
-    if (lookupError && lookupError.code !== "PGRST116") {
-        // PGRST116 = "No rows found" — anything else is a real error
-        throw new Error(
-            `❌ Failed to check for existing GS account: ${lookupError.message}`
-        );
+    // 3. Seed each account in order
+    for (const account of SEED_ACCOUNTS) {
+        await seedAccount(supabase, account);
     }
 
-    if (existing) {
-        console.log(`✅ GS account already exists (id: ${existing.id})`);
-        console.log(`   Email: ${existing.email}`);
-        console.log(`   Role:  ${existing.role}`);
-        console.log("\n⚠️  Seed skipped — existing account not modified.");
-        return;
-    }
-
-    // 4. Hash the initial password
-    console.log("🔐 Hashing password (bcrypt, 12 rounds)...");
-    const passwordHash = await hashPassword(GS_SEED_CONFIG.initial_password);
-
-    // 5. Insert the GS account
-    console.log("📝 Inserting GS account into Members table...");
-    const { data: newMember, error: insertError } = await supabase
-        .from("Members")
-        .insert({
-            first_name: GS_SEED_CONFIG.first_name,
-            last_name: GS_SEED_CONFIG.last_name,
-            email: GS_SEED_CONFIG.email,
-            phone: GS_SEED_CONFIG.phone,
-            join_date: GS_SEED_CONFIG.join_date,
-            monthly_fee: GS_SEED_CONFIG.monthly_fee,
-            status: GS_SEED_CONFIG.status,
-            role: GS_SEED_CONFIG.role,
-            password_hash: passwordHash,
-        })
-        .select()
-        .single();
-
-    if (insertError) {
-        throw new Error(`❌ Failed to insert GS account: ${insertError.message}`);
-    }
-
-    // 6. Log an audit entry for this initialization event
-    console.log("📋 Writing initialization audit log...");
-    const { error: auditError } = await supabase.from("AuditLogs").insert({
-        actor_id: newMember.id,
-        action_type: "SYSTEM_INITIALIZATION",
-        metadata: {
-            new_value: {
-                event: "GS account seeded during system initialization",
-                member_email: newMember.email,
-                member_role: newMember.role,
-                seeded_at: new Date().toISOString(),
-            },
-        },
-    });
-
-    if (auditError) {
-        // Non-fatal: warn but don't fail the seed
-        console.warn(
-            `⚠️  Audit log write failed (non-fatal): ${auditError.message}`
-        );
-    }
-
-    // 7. Success
-    console.log("\n✅ Seed completed successfully!");
-    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    console.log(`   Member ID : ${newMember.id}`);
-    console.log(`   Email     : ${newMember.email}`);
-    console.log(`   Role      : ${newMember.role}`);
-    console.log(`   Status    : ${newMember.status}`);
+    // 4. Summary
+    console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.log("✅ Seed completed successfully!");
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     console.log("\n⚠️  IMPORTANT SECURITY NOTICE:");
-    console.log(
-        "   Change the GS initial password immediately after your first login!"
-    );
+    console.log("   Change ALL initial passwords immediately after the first login!");
+    console.log("   You can also set custom passwords via env vars:");
+    console.log("     GS_SEED_PASSWORD");
+    console.log("     TREASURER_SEED_PASSWORD");
+    console.log("     TRESORIER_ADJOINT_SEED_PASSWORD");
 }
 
 // ============================================================

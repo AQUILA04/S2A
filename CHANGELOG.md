@@ -132,6 +132,33 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 - **Medium (Role Inheritance)** : Défaut de la transmission des droits résolu.
 - **Medium (UI & Security)** : Open redirect comblé, layout refactorisé avec `S2A` UI system.
 
+## [0.4.0] — 2026-03-04 · Story 1.4: Legacy Data Import Tool
+
+### Ajouté / Modifié
+
+#### Interface Utilisateur et Composants
+- Création de la page multi-étapes `app/admin/import/page.tsx` permettant un flux d'import intuitif (Upload -> Aperçu -> Résultat).
+- Intégration du composant de glisser-déposer (Dropzone) interactif.
+- Ajout d'une table d'aperçu affichant le statut de validation pré-import (OK/Erreur) par ligne.
+- Mise à jour du composant de navigation globale `MainNav` pour inclure un lien vers la nouvelle page d'import.
+
+#### Serveur & Logique Métier
+- Nouveau module de parsing `lib/import/parser.ts` gérant les fichiers `.csv`, `.xls`, et `.xlsx` via `xlsx` (SheetJS).
+- Actions serveur sécurisées (`app/admin/import/actions.ts`) :
+  - `previewImport` : Résolution des numéros de téléphone vers les ID membres et détection préventive des doublons existants en base de données.
+  - `confirmImport` : Insertion atomique par lot transactionnelle des contributions historiques validées, et génération centralisée du log d'audit.
+- Utilisation de `Zod` pour valider rigoureusement le format de la matrice d'import.
+
+#### Tests
+- Création de la suite complète `__tests__/import.test.ts` (Coverage exhaustif sur les actions de parsing et serveur).
+- Tests garantissant le filtrage des doublons intra-fichier et l'atomisation des insertions.
+
+### Review de code (AI)
+- **Critical (DB Transaction)** : Refactorisation de l'insertion aléatoirement divisée (`BATCH_SIZE`) vers une insertion atomique de tableau unique traitée de façon transactionnelle par PostgREST avec une limite de sécurité à 5000 lignes (`MAX_INSERT_LIMIT`).
+- **High (Performance)** : Optimisation sévère de la requête de détection de doublons en associant la vérification par `member_ids` combinés aux `years` extraits du payload, empêchant de fatales surcharges mémoire ou time-outs sur de larges jeux historiques.
+- **High (UI UX)** : Correction de la table de prévisualisation (Aperçu) qui affichait un statut 'OK' trompeur pour des membres dont le numéro était absent de la BD. L'UI prévient dorénavant explicitement des échecs d'assignation.
+- **Medium (Timestamps)** : Ajout de la génération du champ obligatoire `validated_at` au sein de la transaction `confirmImport`.
+
 ---
 
-*Prochaine version : [0.4.0] — Epic 2: Tenant & Agency Management*
+*Prochaine version : [0.5.0] — Epic 2: Tenant & Agency Management*

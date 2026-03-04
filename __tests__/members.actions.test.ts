@@ -68,6 +68,8 @@ jest.mock("@/app/api/auth/[...nextauth]/route", () => ({
 import {
     createMemberSchema,
     updateMemberSchema,
+} from "@/app/admin/members/types";
+import {
     createMember,
     updateMember,
     getMembers,

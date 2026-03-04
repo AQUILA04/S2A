@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { Home, Users, Wallet, Settings, LogOut } from "lucide-react";
+import { Home, Users, Wallet, Settings, LogOut, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ============================================================
@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 const navItems = [
     { href: "/dashboard", label: "Home", icon: Home },
     { href: "/admin/members", label: "Members", icon: Users },
+    { href: "/admin/import", label: "Import", icon: Upload },
     { href: "/finance", label: "Finance", icon: Wallet },
     { href: "/settings", label: "Settings", icon: Settings },
 ];

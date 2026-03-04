@@ -1,6 +1,5 @@
 "use server";
 
-import { z } from "zod";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { createServerSupabaseClient } from "@/lib/supabase/client";
@@ -8,8 +7,14 @@ import { hashPassword } from "@/lib/auth/helpers";
 import type {
     Member,
     MemberRole,
-    Database,
 } from "@/types/database.types";
+import {
+    createMemberSchema,
+    updateMemberSchema,
+    type ActionResult,
+} from "./types";
+
+// (schemas and ActionResult are imported from ./types — do NOT re-export from a 'use server' file)
 
 // ============================================================
 // Constants
@@ -17,48 +22,6 @@ import type {
 
 const MEMBERS_WRITE_ROLES: MemberRole[] = ["SG", "SG_ADJOINT", "PRESIDENT"];
 const PAGE_SIZE = 20;
-
-// ============================================================
-// Zod Schemas
-// ============================================================
-
-const createMemberSchema = z.object({
-    first_name: z.string().min(1, "First name is required"),
-    last_name: z.string().min(1, "Last name is required"),
-    email: z.string().email("Invalid email format"),
-    phone: z.string().min(1, "Phone number is required"),
-    join_date: z.string().min(1, "Join date is required"),
-    monthly_fee: z
-        .number({ invalid_type_error: "Monthly fee must be a number" })
-        .min(0, "Monthly fee must be ≥ 0"),
-    role: z.enum(["MEMBER", "PRESIDENT", "SG", "SG_ADJOINT", "TREASURER", "TRESORIER_ADJOINT"]),
-    password: z.string().min(8, "Initial password must be at least 8 characters"),
-});
-
-const updateMemberSchema = z.object({
-    first_name: z.string().min(1, "First name is required").optional(),
-    last_name: z.string().min(1, "Last name is required").optional(),
-    phone: z.string().min(1, "Phone number is required").optional(),
-    monthly_fee: z
-        .number({ invalid_type_error: "Monthly fee must be a number" })
-        .min(0, "Monthly fee must be ≥ 0")
-        .optional(),
-    role: z
-        .enum(["MEMBER", "PRESIDENT", "SG", "SG_ADJOINT", "TREASURER", "TRESORIER_ADJOINT"])
-        .optional(),
-    status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
-    account_status: z.enum(["PENDING_ACTIVATION", "ACTIVE"]).optional(),
-});
-
-// ============================================================
-// Types
-// ============================================================
-
-export interface ActionResult<T> {
-    data?: T;
-    error?: string;
-    fieldErrors?: Record<string, string[]>;
-}
 
 // ============================================================
 // Helper — get session and verify role
