@@ -18,6 +18,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/client";
 import { hasRequiredRole } from "@/lib/auth/helpers";
 import type { ParsedContribution, FileParseResult } from "@/lib/import/parser";
 import type { MemberRole, PaymentChannel } from "@/types/database.types";
+import { logAudit } from "@/lib/audit/logger";
 
 // ============================================================
 // Constants
@@ -334,9 +335,7 @@ export async function confirmImport(
         inserted = (insertedData as { id: string }[]).length;
     }
 
-    // Write AuditLog
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: auditError } = await (supabase.from("AuditLogs") as any).insert({
+    await logAudit({
         actor_id: actor.id,
         action_type: "LEGACY_IMPORT",
         metadata: {
@@ -346,10 +345,6 @@ export async function confirmImport(
             importedAt: new Date().toISOString(),
         },
     });
-
-    if (auditError) {
-        console.warn("[confirmImport] Failed to write AuditLog:", auditError.message);
-    }
 
     return {
         data: {

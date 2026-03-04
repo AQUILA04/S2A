@@ -45,7 +45,7 @@ development_status:
   1-2-member-management-crud: done
   1-3-role-based-authentication: review
   1-4-legacy-data-import-tool: done
-  1-5-audit-logging-middleware: backlog
+  1-5-audit-logging-middleware: done
   epic-1-retrospective: optional
 
   epic-2: backlog

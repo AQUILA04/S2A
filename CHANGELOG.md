@@ -161,4 +161,34 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
-*Prochaine version : [0.5.0] — Epic 2: Tenant & Agency Management*
+## [0.5.0] — 2026-03-05 · Story 1.5: Audit Logging Middleware
+
+### Ajouté
+
+#### Audit Logging
+- Nouveau module utilitaire `lib/audit/logger.ts` avec la fonction exportée `logAudit(payload: AuditLogPayload)` :
+  - `AuditActionType` : type union strict (`"CREATE_MEMBER" | "UPDATE_MEMBER" | "LEGACY_IMPORT"`) garantissant la cohérence des types d'actions à la compilation.
+  - Insertion typée dans la table `AuditLogs` via `satisfies AuditLogInsert` (Supabase TypeScript généré).
+  - Guard de protection anti-corruption : retour anticipé avec `console.warn` si `actor_id` est vide.
+  - Erreur non-fatale : tout échec d'insertion est capturé et consigné sans interrompre l'action parente.
+
+### Modifié
+
+#### Serveur & Logique Métier
+- `app/admin/members/actions.ts` : remplacement des blocs manuels `supabase.from("AuditLogs").insert(...)` dans `createMember` et `updateMember` par des appels standardisés à `logAudit`.
+- `app/admin/import/actions.ts` : remplacement du bloc `AuditLogs` brut dans `confirmImport` par un appel à `logAudit`.
+
+#### Tests
+- `__tests__/audit.logger.test.ts` (nouveau) : 3 tests couvrant l'insertion correcte, la gestion non-fatale des erreurs DB, et le guard `actor_id` vide.
+- `__tests__/members.actions.test.ts` : assertions mises à jour pour valider les appels à `logAudit` (mock Jest) avec les payloads exacts (`actor_id`, `action_type`, `metadata`).
+- `__tests__/import.test.ts` : assertions ajoutées pour vérifier l'appel à `logAudit` avec `action_type: "LEGACY_IMPORT"` et `actor_id` correct.
+
+### Review de code (AI)
+- **H1** : `action_type` typé `string` → remplacé par le type union strict `AuditActionType`.
+- **H2** : Cast `as any` sur l'insertion Supabase → remplacé par `satisfies AuditLogInsert` (vérification structurelle à la compilation).
+- **M1** : Guard `actor_id` manquant → ajout d'une vérification au début de `logAudit` avec retour anticipé.
+- **M2** : Chemin d'import relatif `"../supabase/client"` → corrigé en alias `"@/lib/supabase/client"`.
+
+---
+
+*Prochaine version : [0.6.0] — Epic 2: Tenant & Agency Management*

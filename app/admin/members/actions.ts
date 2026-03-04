@@ -13,6 +13,7 @@ import {
     updateMemberSchema,
     type ActionResult,
 } from "./types";
+import { logAudit } from "@/lib/audit/logger";
 
 // (schemas and ActionResult are imported from ./types — do NOT re-export from a 'use server' file)
 
@@ -169,20 +170,13 @@ export async function createMember(
         return { error: `Failed to create member: ${insertError.message}` };
     }
 
-    // 5. Write AuditLog — CREATE_MEMBER
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: auditError } = await (supabase.from("AuditLogs") as any).insert({
+    await logAudit({
         actor_id: actor.id,
         action_type: "CREATE_MEMBER",
         metadata: {
             new_value: createdMember as Record<string, unknown>,
         },
     });
-
-    if (auditError) {
-        // Non-fatal — log but do not roll back the member creation
-        console.warn("[createMember] Failed to write AuditLog:", auditError.message);
-    }
 
     return { data: createdMember as Member };
 }
@@ -245,9 +239,7 @@ export async function updateMember(
         return { error: `Failed to update member: ${updateError.message}` };
     }
 
-    // 5. Write AuditLog — UPDATE_MEMBER
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: auditError } = await (supabase.from("AuditLogs") as any).insert({
+    await logAudit({
         actor_id: actor.id,
         action_type: "UPDATE_MEMBER",
         metadata: {
@@ -255,10 +247,6 @@ export async function updateMember(
             new_value: updatedMember as Record<string, unknown>,
         },
     });
-
-    if (auditError) {
-        console.warn("[updateMember] Failed to write AuditLog:", auditError.message);
-    }
 
     return { data: updatedMember as Member };
 }

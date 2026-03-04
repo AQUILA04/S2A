@@ -304,6 +304,11 @@ jest.mock("@/app/api/auth/[...nextauth]/route", () => ({
 
 import { confirmImport } from "@/app/admin/import/actions";
 import type { ParsedContribution } from "@/lib/import/parser";
+import { logAudit } from "@/lib/audit/logger";
+
+jest.mock("@/lib/audit/logger", () => ({
+    logAudit: jest.fn(() => Promise.resolve()),
+}));
 
 beforeEach(() => {
     jest.clearAllMocks();
@@ -466,5 +471,11 @@ describe("confirmImport — sets status to VALIDATED", () => {
             expect(firstBatch[0].validator_id).toBe("treasurer-uuid-001");
             expect(firstBatch[0].validated_at).toBeDefined();
         }
+
+        // Assert logAudit was called
+        expect(logAudit).toHaveBeenCalled();
+        const callArgs = (logAudit as jest.Mock).mock.calls[0][0];
+        expect(callArgs.action_type).toBe("LEGACY_IMPORT");
+        expect(callArgs.actor_id).toBe("treasurer-uuid-001");
     });
 });

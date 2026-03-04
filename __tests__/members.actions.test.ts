@@ -62,6 +62,15 @@ jest.mock("@/app/api/auth/[...nextauth]/route", () => ({
 }));
 
 // ============================================================
+// Mock: lib/audit/logger
+// ============================================================
+jest.mock("@/lib/audit/logger", () => ({
+    logAudit: jest.fn(() => Promise.resolve()),
+}));
+
+import { logAudit } from "@/lib/audit/logger";
+
+// ============================================================
 // Tests
 // ============================================================
 
@@ -214,38 +223,17 @@ describe("createMember — AuditLog write", () => {
             created_at_app: "2026-01-01T00:00:00Z",
         };
 
-        // Track what gets inserted into AuditLogs
-        let auditInsertPayload: object | null = null;
-
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const chain: any = {
             select: jest.fn(() => chain),
-            insert: jest.fn((payload: unknown) => {
-                // First call = Members insert, second call = AuditLogs insert
-                if (auditInsertPayload === null && typeof payload === "object") {
-                    auditInsertPayload = payload as object;
-                } else if (typeof payload === "object" && payload !== null) {
-                    auditInsertPayload = payload as object;
-                }
-                return chain;
-            }),
+            insert: jest.fn(() => chain),
             update: jest.fn(() => chain),
             eq: jest.fn(() => chain),
             single: jest.fn()
-                .mockResolvedValueOnce({ data: createdMember, error: null }) // Members insert
-                .mockResolvedValueOnce({ data: null, error: null }),          // AuditLogs insert
+                .mockResolvedValueOnce({ data: createdMember, error: null }), // Members insert
             range: jest.fn(() => Promise.resolve({ data: [], error: null, count: 0 })),
             order: jest.fn(() => chain),
         };
-        chain.insert = jest.fn((payload: unknown) => {
-            if (typeof payload === "object" && payload !== null) {
-                const p = payload as Record<string, unknown>;
-                if (p.action_type) {
-                    auditInsertPayload = payload as object;
-                }
-            }
-            return chain;
-        });
 
         mockFromReturn = chain;
 
@@ -262,6 +250,15 @@ describe("createMember — AuditLog write", () => {
 
         // The member should be returned
         expect(result.error).toBeUndefined();
+
+        // Assert logAudit was called correctly
+        expect(logAudit).toHaveBeenCalledWith({
+            actor_id: "actor-uuid-001",
+            action_type: "CREATE_MEMBER",
+            metadata: {
+                new_value: createdMember,
+            },
+        });
     });
 });
 
@@ -284,24 +281,15 @@ describe("updateMember — AuditLog payload", () => {
             monthly_fee: 15000,
         };
 
-        let auditPayload: Record<string, unknown> | null = null;
-
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const chain: any = {
             select: jest.fn(() => chain),
-            insert: jest.fn((payload: unknown) => {
-                const p = payload as Record<string, unknown>;
-                if (p.action_type === "UPDATE_MEMBER") {
-                    auditPayload = p;
-                }
-                return chain;
-            }),
+            insert: jest.fn(() => chain),
             update: jest.fn(() => chain),
             eq: jest.fn(() => chain),
             single: jest.fn()
                 .mockResolvedValueOnce({ data: oldMember, error: null })     // fetch old member
-                .mockResolvedValueOnce({ data: updatedMember, error: null }) // update result
-                .mockResolvedValueOnce({ data: null, error: null }),          // audit insert
+                .mockResolvedValueOnce({ data: updatedMember, error: null }), // update result
             range: jest.fn(() => Promise.resolve({ data: [], error: null, count: 0 })),
             order: jest.fn(() => chain),
         };
@@ -310,12 +298,12 @@ describe("updateMember — AuditLog payload", () => {
 
         await updateMember("member-uuid-001", { monthly_fee: 15000 });
 
-        // AuditLog should have been called via insert
-        // The chain captures the insert call — verify it was invoked
-        expect(chain.insert).toHaveBeenCalled();
-        expect(auditPayload).not.toBeNull();
-        expect((auditPayload as any).metadata.old_value.monthly_fee).toBe(10000);
-        expect((auditPayload as any).metadata.new_value.monthly_fee).toBe(15000);
+        // logAudit should have been called
+        expect(logAudit).toHaveBeenCalled();
+        const callArgs = (logAudit as jest.Mock).mock.calls[0][0];
+        expect(callArgs.action_type).toBe("UPDATE_MEMBER");
+        expect(callArgs.metadata.old_value.monthly_fee).toBe(10000);
+        expect(callArgs.metadata.new_value.monthly_fee).toBe(15000);
     });
 });
 
@@ -390,7 +378,6 @@ describe("createMember — account_status default", () => {
         const chain = buildChain({
             single: jest.fn()
                 .mockResolvedValueOnce({ data: createdMember, error: null }) // Member insert
-                .mockResolvedValueOnce({ data: null, error: null }),          // AuditLog
         });
         mockFromReturn = chain;
 
