@@ -191,4 +191,39 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
-*Prochaine version : [0.6.0] — Epic 2: Tenant & Agency Management*
+## [0.6.0] — 2026-03-05 · Story 2.1: Payment Channel Configuration
+
+### Ajouté / Modifié
+
+#### Interface Utilisateur et Composants
+- `PaymentChannelsClient` : gestion interactive des canaux avec interrupteurs d'activation (ToggleSwitch), formulaires d'édition rapide, et retour visuel (CopyButton).
+- Ajout de "Payments" dans la navigation globale `main-nav.tsx`.
+- Ajout d'une notification (Toast) pour les retours d'actions CRUD en temps réel.
+- Hook réutilisable `hooks/use-payment-channels.ts` pour la récupération client-side des canaux actifs.
+
+#### Base de données
+- Migration `V003__payment_channels.sql` pour la table `PaymentChannels`.
+- RLS strict implémenté permettant la configuration en écriture uniquement par le `TREASURER`, `TRESORIER_ADJOINT` et `PRESIDENT`.
+- Trigger pour auto-màj du `updated_at`.
+- Script de seed avec les 4 canaux officiels d'Amicale S2A (Flooz, Mixx, Virement, Western Union) en statut neutre originel (`is_active: false`).
+
+#### Serveur & Logique Métier
+- Actions serveur isolées dans `app/admin/settings/payment-channels/actions.ts` : CRUD standard + Toggle d'activation.
+- Export centralisé des schémas de validation backend dans `schema.ts`.
+- Maintien de l'intégrité référentielle en favorisant la désactivation virtuelle (`is_active = false`) à l'opposé de purges absolues.
+- Utilisation de `logAudit` pour tous les appels de mutation.
+
+#### Tests
+- Création de la suite `__tests__/payment-channels.actions.test.ts` validant 24 scénarios complets au niveau des schémas de données `Zod`, du contrôle des accès `NextAuth` et de l'intégration `Supabase`.
+- Simulation de contextes de mutation pour assurer le correct mapping des champs `old_value` et `new_value` enregistrés par l'Audit Logger.
+
+### Review de code (AI)
+- **H1 (Architecture Violation)** : Refactorisation impérative de `deletePaymentChannel` interdisant techniquement la commande `.delete()` au profit d'une invalidation de statut pour préserver l'intégrité de l'historique de paiement des membres.
+- **H2 (UUID Validation)** : Injection du schéma `paymentChannelIdSchema` pour rejeter silencieusement toute payload dont l'ID est invalide sans casser drastiquement le runtime SQL Supabase.
+- **M1 (Imports Serveur dynamiques)** : Standardisation locale des imports d'actions serveur dans l'arbre client via appels statiques globaux.
+- **M2 (Formatage Instructions)** : Application css de la classe Tailwind `whitespace-pre-wrap` au bloc descriptif pour faire survivre nativement les sauts de ligne lors du rendu des informations transactionnelles.
+- **L1 (Localisation)** : Remplacement des termes résiduels isolés ("Déconnexion/Quitter") par "Log Out" sur l'interface principale de menu.
+
+---
+
+*Prochaine version : [0.7.0] — Story 2.2: Member Payment Declaration Wizard*

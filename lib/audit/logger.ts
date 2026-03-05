@@ -7,7 +7,10 @@ import type { Database } from "@/types/database.types";
 export type AuditActionType =
     | "CREATE_MEMBER"
     | "UPDATE_MEMBER"
-    | "LEGACY_IMPORT";
+    | "LEGACY_IMPORT"
+    | "CREATE_PAYMENT_CHANNEL"
+    | "UPDATE_PAYMENT_CHANNEL"
+    | "DELETE_PAYMENT_CHANNEL";
 
 export interface AuditLogPayload {
     actor_id: string;

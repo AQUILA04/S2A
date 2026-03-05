@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { Home, Users, Wallet, Settings, LogOut, Upload } from "lucide-react";
+import { Home, Users, Wallet, Settings, LogOut, Upload, CreditCard } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ============================================================
@@ -15,6 +15,7 @@ const navItems = [
     { href: "/admin/members", label: "Members", icon: Users },
     { href: "/admin/import", label: "Import", icon: Upload },
     { href: "/finance", label: "Finance", icon: Wallet },
+    { href: "/admin/settings/payment-channels", label: "Payments", icon: CreditCard },
     { href: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -52,7 +53,7 @@ export function MainNav() {
                         className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors"
                     >
                         <LogOut className="h-5 w-5" aria-hidden="true" />
-                        Déconnexion
+                        Log Out
                     </button>
                 </div>
             </aside>
@@ -87,7 +88,7 @@ export function MainNav() {
                         className="flex min-w-[64px] flex-col items-center gap-1 px-2 py-1 text-[10px] sm:text-xs text-destructive hover:text-destructive/80 font-medium transition-colors"
                     >
                         <LogOut className="h-6 w-6 stroke-2" aria-hidden="true" />
-                        <span className="uppercase tracking-wide">Quitter</span>
+                        <span className="uppercase tracking-wide">Log Out</span>
                     </button>
                 </div>
             </nav>

@@ -48,8 +48,8 @@ development_status:
   1-5-audit-logging-middleware: done
   epic-1-retrospective: optional
 
-  epic-2: backlog
-  2-1-payment-channel-configuration: backlog
+  epic-2: in-progress
+  2-1-payment-channel-configuration: done
   2-2-member-payment-declaration-wizard: backlog
   2-3-executive-board-direct-recording-cash: backlog
   2-4-validation-console: backlog

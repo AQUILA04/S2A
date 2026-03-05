@@ -57,6 +57,19 @@ export interface Contribution {
     created_at: string; // ISO timestamp
 }
 
+/** A treasury payment channel configured by the Executive Board. */
+export interface PaymentChannelRow {
+    id: string; // UUID
+    provider_name: string;
+    channel_type: PaymentChannel;
+    account_number: string;
+    instructions: string | null;
+    is_active: boolean;
+    created_at: string; // ISO timestamp
+    updated_at: string; // ISO timestamp
+    updated_by: string | null; // UUID FK -> Members.id
+}
+
 export interface BlackoutMonth {
     id: string; // UUID
     month: number; // 1-12
@@ -153,6 +166,15 @@ export interface Database {
                     timestamp?: string;
                 };
                 Update: Partial<Omit<AuditLog, "id">>;
+            };
+            PaymentChannels: {
+                Row: PaymentChannelRow;
+                Insert: Omit<PaymentChannelRow, "id" | "created_at" | "updated_at"> & {
+                    id?: string;
+                    created_at?: string;
+                    updated_at?: string;
+                };
+                Update: Partial<Omit<PaymentChannelRow, "id" | "created_at">>;
             };
         };
         Enums: {
