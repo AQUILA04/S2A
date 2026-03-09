@@ -3,6 +3,7 @@ import { getMembers } from "@/app/admin/members/actions";
 import { AssociationStatusBadge, AccountStatusBadge } from "@/components/s2a/status-badge";
 import { MemberFilters } from "@/components/s2a/member-filters";
 import { UserPlus, ChevronLeft, ChevronRight, UserRound } from "lucide-react";
+import { RecordPaymentDialog } from "@/app/admin/members/components/record-payment-dialog";
 
 // Force dynamic to avoid caching stale member data
 export const dynamic = "force-dynamic";
@@ -71,13 +72,18 @@ export default async function MembersPage({ searchParams }: MembersPageProps) {
                     ) : (
                         <div className="divide-y">
                             {members.map((member) => (
-                                <Link
-                                    href={`/admin/members/${member.id}`}
+                                <div
                                     key={member.id}
-                                    className="flex flex-col sm:grid sm:grid-cols-12 sm:gap-4 px-4 py-4 sm:py-3 transition-colors hover:bg-muted/30 sm:items-center"
+                                    className="flex flex-col sm:grid sm:grid-cols-12 sm:gap-4 px-4 py-4 sm:py-3 transition-colors hover:bg-muted/30 sm:items-center relative group"
                                 >
+                                    <Link
+                                        href={`/admin/members/${member.id}`}
+                                        className="absolute inset-0 z-0"
+                                        aria-label={`View ${member.first_name} ${member.last_name}`}
+                                    />
+
                                     {/* Membre (Avatar + Name + ID) */}
-                                    <div className="flex items-center gap-3 sm:col-span-4">
+                                    <div className="flex items-center gap-3 sm:col-span-4 z-10 pointer-events-none">
                                         <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center shrink-0 overflow-hidden text-[#002366] border border-border">
                                             {/* Fallback avatar */}
                                             <UserRound className="w-6 h-6" />
@@ -93,15 +99,20 @@ export default async function MembersPage({ searchParams }: MembersPageProps) {
                                     </div>
 
                                     {/* Email (Right aligned on mobile, normal column on PC) */}
-                                    <div className="mt-3 sm:mt-0 sm:col-span-5 flex items-center sm:justify-start justify-end">
+                                    <div className="mt-3 sm:mt-0 sm:col-span-5 flex items-center sm:justify-start justify-end z-10 pointer-events-none">
                                         <span className="text-muted-foreground truncate">{member.email}</span>
                                     </div>
 
                                     {/* Statut (hidden on mobile mockup, but let's show on PC) */}
-                                    <div className="hidden sm:flex sm:col-span-3 items-center justify-end">
+                                    <div className="hidden sm:flex sm:col-span-3 items-center justify-end gap-2 z-10">
                                         <AssociationStatusBadge status={member.status} />
+                                        <RecordPaymentDialog
+                                            memberId={member.id}
+                                            memberName={`${member.first_name} ${member.last_name}`}
+                                            memberMonthlyFee={member.monthly_fee}
+                                        />
                                     </div>
-                                </Link>
+                                </div>
                             ))}
                         </div>
                     )}

@@ -226,4 +226,32 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
-*Prochaine version : [0.7.0] — Story 2.2: Member Payment Declaration Wizard*
+## [0.8.0] — 2026-03-09 · Story 2.3: Executive Board Direct Recording (Cash)
+
+### Ajouté / Modifié
+
+#### Interface Utilisateur et Composants
+- `RecordPaymentDialog` : Composant modal (Dialog) permettant aux membres du bureau exécutif d'enregistrer directement un paiement en espèces, depuis la liste des membres (`app/admin/members/page.tsx`). Multi-sélection de mois via une grille de boutons.
+- Warning en temps réel dans le formulaire si le montant saisi ne correspond pas à la somme attendue pour le nombre de mois sélectionnés.
+- Validation client et serveur (Zod) autorisant un `reference_id` vide *uniquement* pour le canal `CASH`.
+
+#### Serveur & Logique Métier
+- Action serveur `recordDirectPayment` (`app/admin/payments/actions.ts`) permettant l'enregistrement sécurisé (backend).
+- Logique de distribution ("Bulk Splitting") : un paiement multi-mois (ex: N mois sélectionnés) est automatiquement divisé et inséré sous forme de N enregistrements distincts dans la table `Contributions`. Le reliquat (reste de division) est ajouté au premier mois.
+- Statut automatique : les paiements directs sont immédiatement enregistrés avec le statut `VALIDATED`.
+- Génération d'un log d'audit centralisé via `logAudit`.
+- Revalidation du path `/admin/members` post-succès.
+
+#### Tests
+- Création de `__tests__/payments.actions.test.ts` pour valider la logique de découpe proportionnelle des paiements (`split amount evenly`) et la gestion des restes arithmétiques, ainsi que les guards RBAC.
+- Extension de `__tests__/contribution.schema.test.ts` : valide l'acceptation de canal CASH sans identifiant de référence, et le rejet de tableau de mois passés/futurs illogiques.
+
+### Review de code (AI)
+- **H1 (Sécurité/RBAC)** : Restriction d'accès corrigée. Seuls `TREASURER`, `TRESORIER_ADJOINT` et `PRESIDENT` sont autorisés à utiliser la mutation (SG et SG_ADJOINT exclus conformément à l'architecture financière stricte).
+- **H2 (Type Safety/Crash)** : L'action d'audit `RECORD_DIRECT_PAYMENT` était manquante dans le type union `AuditActionType`, ce qui a fait échouer le build TypeScript, corrigé dans `lib/audit/logger.ts`.
+- **M1 (Nesting HTML Invalide)** : Correction d'une invalidation W3C/React où la modale interactive `RecordPaymentDialog` était imbriquée accidentellement dans une balise `<Link>` globale sur la rangée utilisateur. 
+
+---
+
+*Prochaine version (En revue) : [0.7.0] — Story 2.2: Member Payment Declaration Wizard*
+*Prochaine version (Backlog) : [0.9.0] — Story 2.4: Validation Console*

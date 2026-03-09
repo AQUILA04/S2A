@@ -10,7 +10,8 @@ export type AuditActionType =
     | "LEGACY_IMPORT"
     | "CREATE_PAYMENT_CHANNEL"
     | "UPDATE_PAYMENT_CHANNEL"
-    | "DELETE_PAYMENT_CHANNEL";
+    | "DELETE_PAYMENT_CHANNEL"
+    | "RECORD_DIRECT_PAYMENT";
 
 export interface AuditLogPayload {
     actor_id: string;
