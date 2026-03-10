@@ -52,7 +52,7 @@ development_status:
   2-1-payment-channel-configuration: done
   2-2-member-payment-declaration-wizard: review
   2-3-executive-board-direct-recording-cash: done
-  2-4-validation-console: backlog
+  2-4-validation-console: review
   2-5-blackout-months-configuration: backlog
   epic-2-retrospective: optional
 

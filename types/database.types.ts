@@ -4,6 +4,14 @@
  * Run `npm run db:generate-types` to regenerate from a live Supabase instance.
  */
 
+export type Json =
+    | string
+    | number
+    | boolean
+    | null
+    | { [key: string]: Json | undefined }
+    | Json[];
+
 /** Membership / cotisation status. Set automatically by the balance engine. */
 export type MemberStatus = "ACTIVE" | "INACTIVE";
 
@@ -26,7 +34,7 @@ export type PaymentChannel =
 
 export type ContributionStatus = "PENDING" | "VALIDATED" | "REJECTED";
 
-export interface Member {
+export type Member = {
     id: string; // UUID
     first_name: string;
     last_name: string;
@@ -43,7 +51,7 @@ export interface Member {
     created_at_app: string; // ISO timestamp
 }
 
-export interface Contribution {
+export type Contribution = {
     id: string; // UUID
     member_id: string; // UUID FK -> Members.id
     amount: number;
@@ -58,7 +66,7 @@ export interface Contribution {
 }
 
 /** A treasury payment channel configured by the Executive Board. */
-export interface PaymentChannelRow {
+export type PaymentChannelRow = {
     id: string; // UUID
     provider_name: string;
     channel_type: PaymentChannel;
@@ -70,7 +78,7 @@ export interface PaymentChannelRow {
     updated_by: string | null; // UUID FK -> Members.id
 }
 
-export interface BlackoutMonth {
+export type BlackoutMonth = {
     id: string; // UUID
     month: number; // 1-12
     year: number; // >= 2016
@@ -79,7 +87,7 @@ export interface BlackoutMonth {
     created_at: string; // ISO timestamp
 }
 
-export interface ProjectInvestment {
+export type ProjectInvestment = {
     id: string; // UUID
     member_id: string; // UUID FK -> Members.id
     project_name: string;
@@ -88,7 +96,7 @@ export interface ProjectInvestment {
     created_at: string; // ISO timestamp
 }
 
-export interface EBExpense {
+export type EBExpense = {
     id: string; // UUID
     description: string;
     amount: number;
@@ -98,7 +106,7 @@ export interface EBExpense {
     created_at: string; // ISO timestamp
 }
 
-export interface AuditLog {
+export type AuditLog = {
     id: string; // UUID
     actor_id: string; // UUID FK -> Members.id
     action_type: string; // e.g. "VALIDATE_PAYMENT", "UPDATE_MEMBER"
@@ -106,15 +114,23 @@ export interface AuditLog {
     timestamp: string; // ISO timestamp
 }
 
-export interface AuditMetadata {
+export type AuditMetadata = {
     old_value?: Record<string, unknown>;
     new_value?: Record<string, unknown>;
     [key: string]: unknown;
-}
+};
 
 // ============================================================
 // Supabase Database type map (used for typed client)
 // ============================================================
+
+export type GenericRelationship = {
+    foreignKeyName: string;
+    columns: string[];
+    isOneToOne?: boolean;
+    referencedRelation: string;
+    referencedColumns: string[];
+};
 
 export interface Database {
     public: {
@@ -126,6 +142,7 @@ export interface Database {
                     created_at_app?: string;
                 };
                 Update: Partial<Omit<Member, "id">>;
+                Relationships: GenericRelationship[];
             };
             Contributions: {
                 Row: Contribution;
@@ -134,6 +151,7 @@ export interface Database {
                     created_at?: string;
                 };
                 Update: Partial<Omit<Contribution, "id">>;
+                Relationships: GenericRelationship[];
             };
             BlackoutMonths: {
                 Row: BlackoutMonth;
@@ -142,6 +160,7 @@ export interface Database {
                     created_at?: string;
                 };
                 Update: Partial<Omit<BlackoutMonth, "id">>;
+                Relationships: GenericRelationship[];
             };
             ProjectInvestments: {
                 Row: ProjectInvestment;
@@ -150,6 +169,7 @@ export interface Database {
                     created_at?: string;
                 };
                 Update: Partial<Omit<ProjectInvestment, "id">>;
+                Relationships: GenericRelationship[];
             };
             EBExpenses: {
                 Row: EBExpense;
@@ -158,6 +178,7 @@ export interface Database {
                     created_at?: string;
                 };
                 Update: Partial<Omit<EBExpense, "id">>;
+                Relationships: GenericRelationship[];
             };
             AuditLogs: {
                 Row: AuditLog;
@@ -166,6 +187,7 @@ export interface Database {
                     timestamp?: string;
                 };
                 Update: Partial<Omit<AuditLog, "id">>;
+                Relationships: GenericRelationship[];
             };
             PaymentChannels: {
                 Row: PaymentChannelRow;
@@ -175,6 +197,7 @@ export interface Database {
                     updated_at?: string;
                 };
                 Update: Partial<Omit<PaymentChannelRow, "id" | "created_at">>;
+                Relationships: any[];
             };
         };
         Enums: {
@@ -184,5 +207,8 @@ export interface Database {
             payment_channel: PaymentChannel;
             contribution_status: ContributionStatus;
         };
+        Views: Record<string, never>;
+        Functions: Record<string, never>;
+        CompositeTypes: Record<string, never>;
     };
 }

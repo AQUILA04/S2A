@@ -1,5 +1,5 @@
 import { createServerSupabaseClient } from "@/lib/supabase/client";
-import type { Database } from "@/types/database.types";
+import type { Database, Json } from "@/types/database.types";
 
 /**
  * Strict set of audit action types. Extend this union when new write actions are added.
@@ -11,7 +11,8 @@ export type AuditActionType =
     | "CREATE_PAYMENT_CHANNEL"
     | "UPDATE_PAYMENT_CHANNEL"
     | "DELETE_PAYMENT_CHANNEL"
-    | "RECORD_DIRECT_PAYMENT";
+    | "RECORD_DIRECT_PAYMENT"
+    | "VALIDATE_PAYMENT";
 
 export interface AuditLogPayload {
     actor_id: string;
@@ -43,8 +44,7 @@ export async function logAudit(payload: AuditLogPayload): Promise<void> {
 
     const { error } = await supabase
         .from("AuditLogs")
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .insert(insertPayload as unknown as any);
+        .insert(insertPayload);
 
     if (error) {
         // Non-fatal — log but do not roll back the parent action

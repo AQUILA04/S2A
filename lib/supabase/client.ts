@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database.types";
 
 /**
@@ -6,7 +6,7 @@ import type { Database } from "@/types/database.types";
  * ONLY use this in Server Actions and API routes — NEVER expose to the browser.
  * The service role key bypasses Row Level Security (RLS).
  */
-export function createServerSupabaseClient() {
+export function createServerSupabaseClient(): SupabaseClient<Database> {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -36,7 +36,7 @@ export function createServerSupabaseClient() {
  * Public (anon) Supabase client for client-side operations.
  * Respects Row Level Security (RLS).
  */
-export function createPublicSupabaseClient() {
+export function createPublicSupabaseClient(): SupabaseClient<Database> {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 

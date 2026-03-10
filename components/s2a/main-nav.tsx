@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { Home, Users, Wallet, Settings, LogOut, Upload, CreditCard, FileText } from "lucide-react";
+import { Home, Users, Wallet, Settings, LogOut, Upload, CreditCard, FileText, ClipboardCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ============================================================
@@ -14,6 +14,7 @@ const navItems = [
     { href: "/dashboard", label: "Home", icon: Home },
     { href: "/dashboard/payment", label: "Déclaration", icon: FileText },
     { href: "/admin/members", label: "Members", icon: Users },
+    { href: "/admin/validation", label: "Validation", icon: ClipboardCheck },
     { href: "/admin/import", label: "Import", icon: Upload },
     { href: "/finance", label: "Finance", icon: Wallet },
     { href: "/admin/settings/payment-channels", label: "Payments", icon: CreditCard },

@@ -253,5 +253,35 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.9.0] — 2026-03-10 · Story 2.4: Validation Console
+
+### Ajouté / Modifié
+
+#### Interface Utilisateur et Composants
+- Nouvelle page `app/admin/validation/page.tsx` pour l'affichage des déclarations de paiement en attente.
+- Implémentation du "Pull-to-Refresh" natif (`components/s2a/pull-to-refresh.tsx`) utilisant les événements tactiles et `router.refresh()` pour le rechargement mobile.
+- Tiroir d'action contextuel (`ValidationDrawer`) encapsulé dans un client autonome (`ValidationRow`) utilisant `useOptimistic` pour la suppression instantanée (et l'annulation en cas d'erreur) des lignes validées ou rejetées sans round-trip serveur.
+- État vide immersif et squelette de chargement interactif (`loading.tsx`).
+- Ajout de l'entrée "Console de Validation" avec badge dynamique dans le `MainNav`.
+
+#### Serveur & Logique Métier
+- Actions serveur dédiées (`getPendingContributions`, `validatePayment`) dans `app/admin/validation/actions.ts`.
+- Intégration du RBAC strict bloquant techniquement et visuellement la validation pour les profils `SG` ou `MEMBER`.
+- Traçabilité complète via l'Audit Logger (`VALIDATE_PAYMENT`), avec obligation de fournir un motif en cas de rejet (enregistré dans le `metadata.new_value`).
+- Revalidation automatique des caches pour `/admin/validation`, `/admin/members` et `/dashboard`.
+
+#### Base de données & Types
+- Restauration de l'inférence stricte de types de `@supabase/supabase-js` en injectant systématiquement les dépendances omises dans le type généré (`Views`, `Functions`, `CompositeTypes`, et la structure exacte `GenericRelationship`).
+- Suppression absolue des forçages de type (`as any`, `as unknown`).
+
+#### Tests
+- Couverture approfondie via 17 nouveaux tests Jest (`__tests__/validation.actions.test.ts`), valident les cas aux limites du cache, des autorisations RBAC et des schémas.
+
+### Review de code (AI)
+- **H1 (UI Optimiste Incomplète)** : L'implémentation de base ne masquait que le bouton, corrompant la fluidité de l'action. Refactorisation dans une structure parente qui désactive instantanément toute la ligne de table concernée.
+- **H2 (UX Pull-to-refresh Oublié)** : Le Critère d'Acceptation 5 n'était pas réalisé. Création d'un wrapper client interceptant les `TouchEvents` et un retour de friction mathématique pour rafraîchir le client.
+- **M1 (Type Safety Silencieuse)** : L'inférence TypeScript de Supabase évaluait les requêtes comme retournant du type `never`, court-circuitant la détection des erreurs. Correction globale du fichier de type `database.types.ts` pour restaurer la sécurité type stricte dans l'intégralité du projet.
+
+---
+
 *Prochaine version (En revue) : [0.7.0] — Story 2.2: Member Payment Declaration Wizard*
-*Prochaine version (Backlog) : [0.9.0] — Story 2.4: Validation Console*
