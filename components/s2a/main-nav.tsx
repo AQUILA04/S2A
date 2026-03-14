@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { signOut } from "next-auth/react";
-import { Home, Users, Wallet, Settings, LogOut, Upload, CreditCard, FileText, ClipboardCheck } from "lucide-react";
+import { signOut, useSession } from "next-auth/react";
+import { Home, Users, Wallet, Settings, LogOut, Upload, CreditCard, FileText, ClipboardCheck, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ============================================================
@@ -18,18 +18,22 @@ const navItems = [
     { href: "/admin/import", label: "Import", icon: Upload },
     { href: "/finance", label: "Finance", icon: Wallet },
     { href: "/admin/settings/payment-channels", label: "Payments", icon: CreditCard },
+    { href: "/admin/settings/calendar", label: "Calendar", icon: Calendar, roles: ["PRESIDENT"] },
     { href: "/settings", label: "Settings", icon: Settings },
-];
+] satisfies { href: string; label: string; icon: React.ElementType; roles?: string[] }[];
 
 export function MainNav() {
     const pathname = usePathname();
+    const { data: session } = useSession();
+    const userRole = session?.user?.role ?? "";
+    const visibleItems = navItems.filter(item => !item.roles || item.roles.includes(userRole));
 
     return (
         <>
             {/* === SIDEBAR NAV (desktop ≥768px) === */}
             <aside className="hidden w-56 shrink-0 border-r bg-card md:block h-[calc(100vh-3.5rem)] sticky top-14">
                 <nav className="flex flex-col gap-1 p-4" aria-label="Main desktop navigation">
-                    {navItems.map(({ href, label, icon: Icon }) => {
+                    {visibleItems.map(({ href, label, icon: Icon }) => {
                         const isActive = pathname === href || pathname.startsWith(`${href}/`);
                         return (
                             <Link
@@ -67,7 +71,7 @@ export function MainNav() {
                 aria-label="Main mobile navigation"
             >
                 <div className="flex h-16 items-center justify-around">
-                    {navItems.map(({ href, label, icon: Icon }) => {
+                    {visibleItems.map(({ href, label, icon: Icon }) => {
                         const isActive = pathname === href || pathname.startsWith(`${href}/`);
                         return (
                             <Link

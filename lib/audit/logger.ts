@@ -12,7 +12,8 @@ export type AuditActionType =
     | "UPDATE_PAYMENT_CHANNEL"
     | "DELETE_PAYMENT_CHANNEL"
     | "RECORD_DIRECT_PAYMENT"
-    | "VALIDATE_PAYMENT";
+    | "VALIDATE_PAYMENT"
+    | "TOGGLE_BLACKOUT_MONTH";
 
 export interface AuditLogPayload {
     actor_id: string;
