@@ -1,6 +1,9 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { Suspense } from "react";
+import DashboardLoading from "./loading";
+import { DashboardContent } from "./components/dashboard-content";
 
 export default async function DashboardPage() {
     const session = await getServerSession(authOptions);
@@ -37,6 +40,13 @@ export default async function DashboardPage() {
                     </a>
                 </div>
             )}
+
+            <div className="mt-8">
+                <Suspense fallback={<DashboardLoading />}>
+                    {/* User ID from the session is passed as a string */}
+                    <DashboardContent memberId={session.user?.id} />
+                </Suspense>
+            </div>
         </main>
     );
 }

@@ -284,4 +284,32 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.10.0] — 2026-03-15 · Story 3.1: Member Dashboard (3 Counters Layout)
+
+### Ajouté / Modifié
+
+#### Interface Utilisateur et Composants
+- Layout du dashboard membre (`app/dashboard/page.tsx` et `dashboard-content.tsx`) affichant 3 compteurs financiers (Total Versé, Fonds de Fonctionnement 2/12, Solde Épargne 10/12).
+- Création de composants UI réutilisables : `KpiCard` pour les compteurs et `ArrearsBanner` pour les alertes de retard de paiement.
+- Gestion de l'état "Inactif" : application d'un filtre en niveaux de gris sur le dashboard et affichage d'une modale bloquante exigeant le paiement des arriérés.
+- Intégration du motif d'interaction "Pull-to-refresh" (`components/s2a/pull-to-refresh.tsx`) pour recharger les données du membre sur mobile.
+
+#### Serveur & Logique Métier
+- Nouveau moteur de calcul de solde complet (`getMemberBalance` dans `lib/services/balance.service.ts`) gérant :
+  - Le calcul du temps écoulé depuis l'adhésion en excluant les mois de trêve (`BlackoutMonths`).
+  - Le calcul de la dette théorique.
+  - L'allocation au prorata 10/12 et 2/12 sur les cotisations validées.
+  - La déduction des investissements de projets approuvés pour obtenir le solde disponible.
+  - Le calcul des mois d'impayés pour déterminer dynamiquement l'état `ACTIVE` ou `INACTIVE` (seuil de 24 mois).
+
+#### Tests
+- Suite complète de tests unitaires (`__tests__/balance.service.test.ts`) pour valider spécifiquement chaque règle mathématique et calendaire du moteur de calcul financier.
+
+### Review de code (AI)
+- **H1 (UX Pull-to-refresh)** : Implémentation manuelle avec `TouchEvent` non conforme aux recommandations du ticket → refactorisation intégrale avec `@react-spring/web` et `@use-gesture/react` pour une physique et une fluidité natives.
+- **H2 (Type Safety/Crash)** : Risque de blocage lors du rendu côté serveur (`session.user.id`) → sécurisé par un chaînage optionnel.
+- **Mediums** : Nettoyage d'imports inutilisés (`revalidatePath`, `Button`) et mise à jour de la documentation du suivi des fichiers pour le composant de `pull-to-refresh`.
+
+---
+
 *Prochaine version (En revue) : [0.7.0] — Story 2.2: Member Payment Declaration Wizard*
