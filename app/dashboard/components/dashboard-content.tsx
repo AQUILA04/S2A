@@ -1,13 +1,23 @@
-import { getMemberBalance } from "@/lib/services/balance.service";
+import { getMemberBalanceAction } from "@/app/dashboard/actions";
 import { KpiCard } from "@/components/s2a/kpi-card";
 import { ArrearsBanner } from "@/components/s2a/arrears-banner";
 import { PullToRefresh } from "@/components/s2a/pull-to-refresh";
 
 
 export async function DashboardContent({ memberId }: { memberId: string }) {
-  // Fetch real-time balanced data exclusively from the server-side engine
-  const balance = await getMemberBalance(memberId);
+  // Fetch real-time balanced data securely via Server Action
+  const response = await getMemberBalanceAction({ memberId });
+  
+  if (response.error || !response.data) {
+    return (
+      <div className="p-6 bg-destructive/10 text-destructive rounded-lg border border-destructive">
+        <h3 className="font-bold">Erreur de chargement</h3>
+        <p>{response.error || "Impossible de charger les données financières."}</p>
+      </div>
+    );
+  }
 
+  const balance = response.data;
   const isInactive = balance.status === "INACTIVE";
 
   return (

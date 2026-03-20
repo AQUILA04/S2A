@@ -310,6 +310,30 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 - **H2 (Type Safety/Crash)** : Risque de blocage lors du rendu côté serveur (`session.user.id`) → sécurisé par un chaînage optionnel.
 - **Mediums** : Nettoyage d'imports inutilisés (`revalidatePath`, `Button`) et mise à jour de la documentation du suivi des fichiers pour le composant de `pull-to-refresh`.
 
+## [0.11.0] — 2026-03-20 · Story 3.2: Balance Calculation Engine Integration
+
+### Ajouté / Modifié
+
+#### Serveur & Logique Métier
+- Sécurisation RBAC serveur pour l'action `getMemberBalanceAction` afin de prévenir les vulnérabilités IDOR (accès limité au propriétaire ou à un administrateur privilégié).
+- Optimisation des performances via `Promise.all` pour récupérer de manière concurrente les données financières : `BlackoutMonths`, `Contributions`, et `ProjectInvestments`.
+- Protection stricte de l'algorithme financier (`balance.service.ts`) : itération `Date.UTC` pour la chronologie d'adhésion, gestion des divisions par zéro (`monthly_fee = 0`), et filtrage exclusif des statuts `VALIDATED` pour les cotisations et les investissements.
+- Déclaration de l'API Contract avec le schéma strict `memberBalanceConfigSchema` (Zod).
+
+#### Interface Utilisateur et Composants
+- Intégration de l'Action serveur sécurisée (`getMemberBalanceAction`) directement dans le Server Component `DashboardContent`. L'interface utilise les données serveur sans aucun calcul côté client.
+
+#### Tests
+- Extension de la suite de tests unitaires (`__tests__/balance.service.test.ts`) avec 9 tests supplémentaires de cas aux limites : adhésion en année bissextile (29 Février), historique ancien (>10 ans), vérification de la limite frontière des 23 et 24 mois pour l'inactivité, surpaiement, et listes d'exclusion (`BlackoutMonths`) non séquentielles.
+
+### Review de code (AI)
+- **H1 (Sécurité/Corruption DB)** : Capture explicite et traitement des erreurs de réponse Supabase sur les promesses concurrentes du moteur de calcul. Empêche la défaillance silencieuse qui évaluait `totalPaid` à `0`, générant de faux arriérés d'impayés.
+- **H2 (UX/Action orpheline)** : L'action sécurisée `getMemberBalanceAction` n'était utilisée par aucune interface. Le composant `DashboardContent` a été refactorisé pour l'utiliser à la place d'un appel direct au service.
+- **M1 (Filtrage de base de données)** : Refonte de la requête `ProjectInvestments` qui omettait de filtrer par statut `VALIDATED`, risquant de déduire de l'épargne les projets rejetés ou en attente.
+- **M2 (Tests)** : Ajout d'une suite de tests en échec dédiés pour garantir que l'algorithme `balance.service` intercepte et lève correctement les exceptions Supabase (Erreurs DB).
+- **L1 (Code propre)** : Remplacement des multiplicateurs absolus (`2/12` et `10/12`) par des constantes nommées claires en entête de service.
+
 ---
 
 *Prochaine version (En revue) : [0.7.0] — Story 2.2: Member Payment Declaration Wizard*
+
