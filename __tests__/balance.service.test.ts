@@ -332,4 +332,110 @@ describe("Balance Calculation Engine", () => {
       await expect(getMemberBalance("user-error")).rejects.toThrow("Failed to fetch Contributions: DB Error Contributions");
     });
   });
+
+  // ─────────────────────────────────────────────────────
+  //  Timeline Tests (Story 3.3)
+  // ─────────────────────────────────────────────────────
+
+  describe("Timeline", () => {
+    it("populates the timeline array with correct statuses", async () => {
+      // Mock date: 2026-03-15. Join 2026-01-01 → 3 months: Jan, Feb, Mar
+      // Contributions: Jan VALIDATED (with month=1,year=2026), Feb VALIDATED
+      setupMock(
+        { id: "user-timeline", join_date: "2026-01-01", monthly_fee: 1000, status: "ACTIVE" },
+        [],
+        [
+          { amount: 1000, month: 1, year: 2026, status: "VALIDATED" },
+          { amount: 1000, month: 2, year: 2026, status: "VALIDATED" },
+        ],
+        []
+      );
+
+      const result = await getMemberBalance("user-timeline");
+
+      expect(result.timeline).toHaveLength(3);
+      expect(result.timeline[0]).toMatchObject({ month: 1, year: 2026, status: "PAID", amount: 1000 });
+      expect(result.timeline[1]).toMatchObject({ month: 2, year: 2026, status: "PAID", amount: 1000 });
+      expect(result.timeline[2]).toMatchObject({ month: 3, year: 2026, status: "UNPAID", amount: 0 });
+    });
+
+    it("marks blackout months as BLACKOUT in the timeline", async () => {
+      // Feb 2026 is blacked out
+      setupMock(
+        { id: "user-blackout-tl", join_date: "2026-01-01", monthly_fee: 1000, status: "ACTIVE" },
+        [{ month: 2, year: 2026, is_active: true }],
+        [],
+        []
+      );
+
+      const result = await getMemberBalance("user-blackout-tl");
+
+      expect(result.timeline).toHaveLength(3);
+      expect(result.timeline[0]).toMatchObject({ month: 1, year: 2026, status: "UNPAID" });
+      expect(result.timeline[1]).toMatchObject({ month: 2, year: 2026, status: "BLACKOUT" });
+      expect(result.timeline[2]).toMatchObject({ month: 3, year: 2026, status: "UNPAID" });
+    });
+
+    it("attaches a note to BLACKOUT months", async () => {
+      setupMock(
+        { id: "user-blackout-note", join_date: "2026-03-01", monthly_fee: 1000, status: "ACTIVE" },
+        [{ month: 3, year: 2026, is_active: true }],
+        [],
+        []
+      );
+
+      const result = await getMemberBalance("user-blackout-note");
+      const blackoutEntry = result.timeline.find((e) => e.status === "BLACKOUT");
+
+      expect(blackoutEntry).toBeDefined();
+      expect(blackoutEntry?.note).toBeTruthy();
+    });
+
+    it("generates a timeline with correct total month count", async () => {
+      // Jan 2026 join; mock date Mar 2026 → 3 months
+      setupMock(
+        { id: "user-count-tl", join_date: "2026-01-01", monthly_fee: 500, status: "ACTIVE" },
+        [],
+        [],
+        []
+      );
+
+      const result = await getMemberBalance("user-count-tl");
+
+      expect(result.timeline).toHaveLength(3);
+    });
+
+    it("returns an empty timeline when member just joined in current month", async () => {
+      // Joined on 2026-03-01 — only current month (Mar 2026) should appear
+      setupMock(
+        { id: "user-new", join_date: "2026-03-01", monthly_fee: 1000, status: "ACTIVE" },
+        [],
+        [],
+        []
+      );
+
+      const result = await getMemberBalance("user-new");
+
+      expect(result.timeline).toHaveLength(1);
+      expect(result.timeline[0]).toMatchObject({ month: 3, year: 2026 });
+    });
+
+    it("does not break existing balance calculations when timeline is populated", async () => {
+      // Confirm that adding timeline doesn't regress balance math
+      setupMock(
+        { id: "user-regression", join_date: "2026-01-01", monthly_fee: 1000, status: "ACTIVE" },
+        [],
+        [{ amount: 1000, month: 1, year: 2026, status: "VALIDATED" }],
+        []
+      );
+
+      const result = await getMemberBalance("user-regression");
+
+      expect(result.totalPaid).toBe(1000);
+      expect(result.theoreticalDebt).toBe(3000);
+      expect(result.arrears).toBe(2000);
+      expect(result.timeline).toBeDefined();
+      expect(Array.isArray(result.timeline)).toBe(true);
+    });
+  });
 });

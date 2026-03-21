@@ -2,6 +2,20 @@ import { createServerSupabaseClient } from "@/lib/supabase/client";
 import { z } from "zod";
 
 // ─────────────────────────────────────────────────────
+//  Timeline Entry Schema
+// ─────────────────────────────────────────────────────
+
+export const timelineEntrySchema = z.object({
+  month: z.number(),
+  year: z.number(),
+  amount: z.number(),
+  status: z.enum(["PAID", "UNPAID", "BLACKOUT"]),
+  note: z.string().optional(),
+});
+
+export type TimelineEntry = z.infer<typeof timelineEntrySchema>;
+
+// ─────────────────────────────────────────────────────
 //  Zod Schema (strict, exportable for server actions)
 // ─────────────────────────────────────────────────────
 
@@ -14,6 +28,7 @@ export const memberBalanceConfigSchema = z.object({
   arrears: z.number(),
   unpaidMonths: z.number(),
   status: z.enum(["ACTIVE", "INACTIVE"]),
+  timeline: z.array(timelineEntrySchema),
 });
 
 export type MemberBalanceConfig = z.infer<typeof memberBalanceConfigSchema>;
@@ -42,9 +57,10 @@ export async function getMemberBalance(memberId: string): Promise<MemberBalanceC
   if (memberErr || !member) throw new Error("Member not found");
 
   // Step 2: Concurrently fetch BlackoutMonths, Contributions, and ProjectInvestments
+  // NOTE: We now fetch month & year from Contributions for timeline population
   const [blackoutResult, contributionsResult, investmentsResult] = await Promise.all([
     supabase.from("BlackoutMonths").select("month, year").eq("is_active", true),
-    supabase.from("Contributions").select("amount").eq("member_id", memberId).eq("status", "VALIDATED"),
+    supabase.from("Contributions").select("amount, month, year").eq("member_id", memberId).eq("status", "VALIDATED"),
     supabase.from("ProjectInvestments").select("amount").eq("member_id", memberId).eq("status", "VALIDATED"),
   ]);
 
@@ -60,6 +76,22 @@ export async function getMemberBalance(memberId: string): Promise<MemberBalanceC
     )
   );
 
+  // ── Build contribution lookup by month key "YYYY-MM" ─────────────────────
+  // Each entry corresponds to a VALIDATED contribution for a specific month.
+  // If a member paid in bulk (single entry covering multiple months), the
+  // lookup will use the declared month/year from the contribution record.
+  const paidMonths = new Set<string>();
+  const paidAmounts = new Map<string, number>();
+
+  for (const c of contributionsResult.data || []) {
+    const contribution = c as { amount: number | string; month: number; year: number };
+    if (contribution.month && contribution.year) {
+      const key = `${contribution.year}-${String(contribution.month).padStart(2, "0")}`;
+      paidMonths.add(key);
+      paidAmounts.set(key, (paidAmounts.get(key) ?? 0) + Number(contribution.amount));
+    }
+  }
+
   // ── Timeline Filtering & Theoretical Debt ────────────────────────────────
   // Timezone-safe: we work with UTC midnight of the 1st so local tz differences
   // don't cause off-by-one month errors across the timeline.
@@ -72,11 +104,43 @@ export async function getMemberBalance(memberId: string): Promise<MemberBalanceC
   let activeMonthCount = 0;
   let iterDate = new Date(Date.UTC(joinDate.getUTCFullYear(), joinDate.getUTCMonth(), 1));
 
+  const timeline: TimelineEntry[] = [];
+
   while (iterDate <= endDate) {
-    const key = `${iterDate.getUTCFullYear()}-${String(iterDate.getUTCMonth() + 1).padStart(2, "0")}`;
-    if (!blackouts.has(key)) {
+    const year = iterDate.getUTCFullYear();
+    const month = iterDate.getUTCMonth() + 1; // 1-indexed
+    const key = `${year}-${String(month).padStart(2, "0")}`;
+
+    if (blackouts.has(key)) {
+      // Blackout month: excluded from debt calculations
+      timeline.push({
+        month,
+        year,
+        amount: 0,
+        status: "BLACKOUT",
+        note: "Mois suspendu (congé collectif)",
+      });
+    } else {
       activeMonthCount++;
+      if (paidMonths.has(key)) {
+        // Paid month
+        timeline.push({
+          month,
+          year,
+          amount: paidAmounts.get(key) ?? 0,
+          status: "PAID",
+        });
+      } else {
+        // Unpaid month
+        timeline.push({
+          month,
+          year,
+          amount: 0,
+          status: "UNPAID",
+        });
+      }
     }
+
     iterDate.setUTCMonth(iterDate.getUTCMonth() + 1);
   }
 
@@ -121,5 +185,6 @@ export async function getMemberBalance(memberId: string): Promise<MemberBalanceC
     arrears,
     unpaidMonths,
     status: computedStatus,
+    timeline,
   };
 }

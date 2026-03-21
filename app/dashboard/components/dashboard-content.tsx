@@ -2,6 +2,7 @@ import { getMemberBalanceAction } from "@/app/dashboard/actions";
 import { KpiCard } from "@/components/s2a/kpi-card";
 import { ArrearsBanner } from "@/components/s2a/arrears-banner";
 import { PullToRefresh } from "@/components/s2a/pull-to-refresh";
+import { ContributionCalendar } from "./contribution-calendar";
 
 
 export async function DashboardContent({ memberId }: { memberId: string }) {
@@ -64,8 +65,18 @@ export async function DashboardContent({ memberId }: { memberId: string }) {
               variant="gold" 
             />
           </div>
+
+          {/* Contribution Calendar — visible immediately below counters (AC: 4) */}
+          <div className="mt-6">
+            <ContributionCalendar
+              memberId={memberId}
+              data={balance.timeline}
+              isLoading={false}
+            />
+          </div>
         </PullToRefresh>
       </div>
     </div>
   );
 }
+

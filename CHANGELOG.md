@@ -335,5 +335,31 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.12.0] — 2026-03-21 · Story 3.3: Interactive Contribution Calendar
+
+### Ajouté / Modifié
+
+#### Interface Utilisateur et Composants
+- Création du composant `ContributionCalendar` permettant aux membres de visualiser leur historique complet de cotisations.
+- Grille de rendu native purement CSS (CSS Grid) adaptée au responsive mobile (cible tactile minimale 44x44px) sans dépendre de bibliothèques tierces lourdes.
+- Code de couleurs sémantique (design system S2A) pour distinguer les mois payés (`bg-success`), impayés (`bg-destructive`), et suspendus (`bg-muted`/strikethrough avec tooltip explicative).
+- Intégration immédiate sous la rangée de KPI du membre dans `DashboardContent`.
+
+#### Serveur & Logique Métier
+- Extension du moteur de calcul (`balance.service.ts`) : génération chronologique d'un tableau `timeline` complet pour peupler le calendrier, de la date d'adhésion spécifique jusqu'au mois en cours.
+- Consolidation du contrat de données via l'export du `timelineEntrySchema` sous format Zod.
+
+#### Tests
+- Suite de tests de composants UI (`__tests__/components/contribution-calendar.test.tsx`) avec React Testing Library.
+- Actualisation du client `jest.config.ts` pour le support interactif des composants d'interface via l'environnement `jsdom`.
+- Nouvelles assertions dans le service backend afin de garantir la structuration précise du `timeline`.
+
+### Review de code (AI)
+- **H1 (Asynchronisme / UI bloquante)** : La fonction de chargement visuel (`Skeleton`) du composant calendrier était neutralisée par le rendu statique `await` du Server Component parent. Extrait et export de `ContributionCalendarSkeleton` pour permettre de futures délimitation de rendu via `Suspense`.
+- **M1 (Code Mort)** : La "prop" `memberId` acceptée par l'interface `ContributionCalendarProps` a été rattachée fonctionnellement à l'attribut DOM `data-member-id` prévenant une erreur algorithmique d'isolation et respectant la consigne d'extensibilité.
+- **M2 (Transparence versioning)** : Correction documentaire de l'historique d'édition Git (`package.json`, `package-lock.json`).
+
+---
+
 *Prochaine version (En revue) : [0.7.0] — Story 2.2: Member Payment Declaration Wizard*
 
