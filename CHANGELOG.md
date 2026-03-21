@@ -361,5 +361,29 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.13.0] — 2026-03-21 · Story 3.4: Arrears Alert & Inactive Status Handling
+
+### Ajouté / Modifié
+
+#### Interface Utilisateur et Composants
+- `ArrearsBanner` : Création d'un composant de bannière d'alerte (`bg-destructive`) persistante indiquant le montant précis des arriérés pour les membres actifs.
+- `InactiveAlertBox` : Création d'une modale bloquante plein écran signalant le statut "Inactif" et guidant vers la page de paiement.
+- `DashboardContent` : Intégration des composants d'alerte, incluant le passage de l'interface en niveaux de gris (`grayscale`, `pointer-events-none`) pour bloquer toute interaction non liée au paiement en cas d'inactivité.
+
+#### Serveur & Logique Métier
+- `lib/auth/guards.ts` : Nouveau guard d'autorisation serveur (`requireActiveMember`) sécurisant les futures Server Actions (notamment les investissements) contre les membres de statut `INACTIVE`, consolidant le principe The Server-Side Integrity.
+
+#### Tests
+- Suite complète de tests RTL (`react-testing-library`) pour `ArrearsBanner` et `InactiveAlertBox` validant l'accessibilité textuelle et les liens (CTAs) de régularisation.
+- Accompagné du transfert et de la validation explicite des tests chronologiques (`unpaidMonths >= 24`) depuis l'intégration préalable du moteur financier (Story 3.2).
+
+### Review de code (AI)
+- **H1 (Fausse Déclaration Fichier)** : Le rapport de développement incluait le fichier de test `balance.service.test.ts` sans modification Git. Les assertions de la limite d'inactivité ayant déjà été codées en 3.2, la trace documentée a été rectifiée.
+- **M1 (Nesting HTML Invalide)** : Correction d'une invalidité HTML dans Next.js App Router où le CTA `InactiveAlertBox` insérait une balise `<button>` à l'intérieur d'un composant `<Link>` (lequel générait déjà une balise `<a>`).
+- **M2 (Visual Redundancy)** : Masquage de la bannière `ArrearsBanner` lorsque le membre est inactif (l'écran d'alerte complet est suffisamment prioritaire).
+- **L1 (Code style)** : Standardisation des classes dynamiques conditionnelles React via l'utilitaire local `cn()` dans le composant principal du dashboard.
+
+---
+
 *Prochaine version (En revue) : [0.7.0] — Story 2.2: Member Payment Declaration Wizard*
 
