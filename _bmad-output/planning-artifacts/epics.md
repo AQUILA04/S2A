@@ -137,6 +137,20 @@ So that there is a strict, immutable financial and administrative audit trail.
 **Then** a middleware intercepts the action to securely log it
 **And** records it in the `AuditLogs` table along with actor ID, timestamp, and before/after metadata changes
 
+### Story 1.6: Mass Member Import (CSV/Excel)
+
+As the General Secretary, Deputy GS, or President,
+I want to upload a CSV or Excel file containing member details,
+So that I can bulk create members efficiently without manual data entry.
+
+**Acceptance Criteria:**
+
+**Given** the SG, Deputy SG, or President is logged into the administrative space
+**When** they upload a member import file with headers `NOM`, `PRÉNOM`, `NOM ET PRÉNOMS COMPLETS`, `TÉLÉPHONE`, `ADRESSE`, `EMAIL`
+**Then** the system prioritizes `NOM` and `PRÉNOM` for the member's name (safely ignoring `NOM ET PRÉNOMS COMPLETS` if the first two are populated)
+**And** the system strictly validates that `TÉLÉPHONE` and `EMAIL` do not already exist in the database, handling duplication errors gracefully
+**And** successfully creates the valid new members with a "Pending Activation" status (consistent with Story 1.2)
+
 ## Epic 2: Treasury & Contribution Management
 
 Members can declare payments via multiple channels, and the Board can validate these payments and configure blackout months.

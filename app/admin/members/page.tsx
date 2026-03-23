@@ -4,6 +4,7 @@ import { AssociationStatusBadge, AccountStatusBadge } from "@/components/s2a/sta
 import { MemberFilters } from "@/components/s2a/member-filters";
 import { UserPlus, ChevronLeft, ChevronRight, UserRound } from "lucide-react";
 import { RecordPaymentDialog } from "@/app/admin/members/components/record-payment-dialog";
+import { MassImportDialog } from "@/app/admin/members/components/mass-import-dialog";
 
 // Force dynamic to avoid caching stale member data
 export const dynamic = "force-dynamic";
@@ -50,6 +51,7 @@ export default async function MembersPage({ searchParams }: MembersPageProps) {
                         Ajouter un membre
                     </button>
                 </Link>
+                <MassImportDialog />
             </div>
 
             <div className="p-4 flex-1">

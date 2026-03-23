@@ -46,6 +46,7 @@ development_status:
   1-3-role-based-authentication: done
   1-4-legacy-data-import-tool: done
   1-5-audit-logging-middleware: done
+  1-6-mass-member-import: done
   epic-1-retrospective: optional
 
   epic-2: in-progress

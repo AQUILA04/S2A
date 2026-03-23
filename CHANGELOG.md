@@ -385,5 +385,33 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.14.0] — 2026-03-23 · Story 1.6: Mass Member Import (CSV/Excel)
+
+### Ajouté / Modifié
+
+#### Interface Utilisateur et Composants
+- Création du composant interactif `MassImportDialog` (`app/admin/members/components/mass-import-dialog.tsx`) permettant d'importer des fichiers membres (CSV/Excel) avec un tableau de bord pré-import distinguant instantanément lignes valides et erreurs de forme.
+- Intégration de la librairie de parsing client-side `xlsx` (SheetJS) qui soulage la bande passante serveur et évite les limites d'upload de Vercel (1MB Server Action).
+- Découpage par lots (chunking de 500) à la volée des payloads JSON côté client pour fiabiliser les soumissions backend très volumineuses.
+
+#### Serveur & Logique Métier
+- Action serveur sécurisée `bulkImportMembers` (`actions.ts`) avec validation croisée : seules les entrées intègres aboutissent, avec rapport précis par ligne des rejets (doublons d'email ou de téléphone).
+- Stratégie de Chunking transactionnelle : découpage des appels API en lots de 50 pour contourner l'effondrement REST de type `HTTP 414 URI Too Long` lors du scan expansif des duplicatas avec `.or()`.
+- Dynamisation cryptographique native insérant un UUID aléatoire sécurisé distinct par individu au statut `PENDING_ACTIVATION`.
+- Intégration fluide de la routine `parseFullName` (`lib/utils/name-parser.ts`) qui orchestre le fallback intelligent de prénoms composites et noms de familles fusionnés depuis Nom Complet si les champs cibles sont vides.
+- Finalisation de l'audit tracking sur la constante événementielle `MASS_IMPORT_MEMBERS`.
+
+#### Tests
+- Déploiement d'une suite de robustesse `__tests__/utils/name-parser.test.ts` blindant la scission verbale des identités et les entrées muettes asymptotiques.
+- Construction du rapporteur et validateur d'état d'import `__tests__/actions/bulk-import-members.test.ts` (Mock global NextAuth et abstraction logicielle de Supabase).
+
+### Review de code (AI)
+- **CRITICAL (Scalability/API Limit)** : L'action de check `bulkImportMembers` générait originellement un flux filtrant cumulatif provoquant inéluctablement un crash REST 414 sur les imports étendus. Refactorisation défensive en tranches (chunks) strictes de 50 unités.
+- **HIGH (Data Integrity)** : Refus passif du standard d'acceptation 2, ignorant aveuglément la colonne `ADRESSE`. Inclusion formelle du point de collecte au sein de l'adaptateur UI tout en le sanitairement isolant du flux DB statique.
+- **HIGH (Security/Flaw)** : Neutralisation d'une menace de mot de passe générique partagé pour toute l'enveloppe importée, et déport de l'instanciation de sel au cœur de la boucle itérative.
+- **MEDIUM (Server Payloads)** : Fractionnement exclusif d'upload client épaulé d'un partitionnement logiciel des instances envoyées pour neutraliser les restrictions strictes Vercel/Next.js de 1 MB.
+
+---
+
 *Prochaine version (En revue) : [0.7.0] — Story 2.2: Member Payment Declaration Wizard*
 

@@ -40,9 +40,24 @@ export const updateMemberSchema = z.object({
     account_status: z.enum(["PENDING_ACTIVATION", "ACTIVE"]).optional(),
 });
 
+export const massImportMemberSchema = z.object({
+    id: z.string().uuid("Invalid UUID"),
+    first_name: z.string().min(1, "First name is required"),
+    last_name: z.string().min(1, "Last name is required"),
+    email: z.string().email("Invalid email format"),
+    phone: z.string().min(1, "Phone number is required"),
+    address: z.string().optional(),
+    join_date: z.string().optional(),
+    monthly_fee: z.number().optional(),
+    role: z.enum(["MEMBER", "PRESIDENT", "SG", "SG_ADJOINT", "TREASURER", "TRESORIER_ADJOINT"]).optional(),
+});
+
+export type ValidatedMemberJson = z.infer<typeof massImportMemberSchema>;
+
 // ============================================================
 // Shared Result Type
 // ============================================================
+
 
 export interface ActionResult<T> {
     data?: T;
