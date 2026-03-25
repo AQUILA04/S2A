@@ -20,7 +20,7 @@ process.env.NEXTAUTH_SECRET = "test-secret";
 process.env.NEXTAUTH_URL = "http://localhost:3000";
 
 import { authOptions, authorizeCredentials as authorize } from "@/app/api/auth/[...nextauth]/route";
-import { middleware } from "@/middleware";
+import middleware from "@/middleware";
 import * as jwt from "next-auth/jwt";
 
 // 1. Mock Supabase Client
@@ -151,7 +151,7 @@ describe("Middleware - Route protection (AC1, AC2)", () => {
 
     it("users accessing the root (/) should be redirected to /dashboard", async () => {
         const req = new NextRequest("http://localhost:3000/");
-        const res = await middleware(req) as any;
+        const res = await middleware(req as any, null as any) as any;
 
         expect(res.status).toBe(307);
         expect(res.headers.get("location")).toContain("/dashboard");
@@ -161,7 +161,7 @@ describe("Middleware - Route protection (AC1, AC2)", () => {
         (jwt.getToken as jest.Mock).mockResolvedValue(null);
 
         const req = new NextRequest("http://localhost:3000/admin/settings");
-        const res = await middleware(req) as any;
+        const res = await middleware(req as any, null as any) as any;
 
         expect(res.status).toBe(307);
         expect(res.headers.get("location")).toContain("/login");
@@ -171,7 +171,7 @@ describe("Middleware - Route protection (AC1, AC2)", () => {
         (jwt.getToken as jest.Mock).mockResolvedValue({ role: "MEMBER" });
 
         const req = new NextRequest("http://localhost:3000/admin/members");
-        const res = await middleware(req) as any;
+        const res = await middleware(req as any, null as any) as any;
 
         expect(res.status).toBe(307);
         expect(res.headers.get("location")).toBe("http://localhost:3000/dashboard");
@@ -181,7 +181,7 @@ describe("Middleware - Route protection (AC1, AC2)", () => {
         (jwt.getToken as jest.Mock).mockResolvedValue({ role: "SG" });
 
         const req = new NextRequest("http://localhost:3000/admin/members");
-        const res = await middleware(req) as any;
+        const res = await middleware(req as any, null as any) as any;
 
         // Allowed through uses NextResponse.next() which doesn't redirect
         expect(res.headers.get("location")).toBeNull();
@@ -191,7 +191,7 @@ describe("Middleware - Route protection (AC1, AC2)", () => {
         (jwt.getToken as jest.Mock).mockResolvedValue(null);
 
         const req = new NextRequest("http://localhost:3000/dashboard");
-        const res = await middleware(req) as any;
+        const res = await middleware(req as any, null as any) as any;
 
         expect(res.status).toBe(307);
         expect(res.headers.get("location")).toContain("/login");
@@ -201,7 +201,7 @@ describe("Middleware - Route protection (AC1, AC2)", () => {
         (jwt.getToken as jest.Mock).mockResolvedValue({ role: "MEMBER" });
 
         const req = new NextRequest("http://localhost:3000/dashboard");
-        const res = await middleware(req) as any;
+        const res = await middleware(req as any, null as any) as any;
 
         expect(res.headers.get("location")).toBeNull();
     });
