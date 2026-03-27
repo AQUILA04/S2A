@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
-import { Home, Users, Wallet, Settings, LogOut, Upload, CreditCard, FileText, ClipboardCheck, Calendar } from "lucide-react";
+import { Home, Users, LogOut, Upload, CreditCard, FileText, ClipboardCheck, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useEffect } from "react";
 
 // ============================================================
 // Global Navigation Items
@@ -16,17 +17,46 @@ const navItems = [
     { href: "/admin/members", label: "Members", icon: Users },
     { href: "/admin/validation", label: "Validation", icon: ClipboardCheck },
     { href: "/admin/import", label: "Import", icon: Upload },
-    { href: "/finance", label: "Finance", icon: Wallet },
     { href: "/admin/settings/payment-channels", label: "Payments", icon: CreditCard },
     { href: "/admin/settings/calendar", label: "Calendar", icon: Calendar, roles: ["PRESIDENT"] },
-    { href: "/settings", label: "Settings", icon: Settings },
 ] satisfies { href: string; label: string; icon: React.ElementType; roles?: string[] }[];
+
+const implementedRoutes = new Set([
+    "/dashboard",
+    "/dashboard/payment",
+    "/admin/members",
+    "/admin/validation",
+    "/admin/import",
+    "/admin/settings/payment-channels",
+    "/admin/settings/calendar",
+]);
 
 export function MainNav() {
     const pathname = usePathname();
     const { data: session } = useSession();
     const userRole = session?.user?.role ?? "";
     const visibleItems = navItems.filter(item => !item.roles || item.roles.includes(userRole));
+
+    useEffect(() => {
+        const invalidItems = navItems.filter((item) => !implementedRoutes.has(item.href));
+        // #region agent log
+        fetch("http://127.0.0.1:7244/ingest/7d8a4cfb-3119-40e9-9e80-feacfcc42c79", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                runId: "post-fix",
+                hypothesisId: "F5",
+                location: "components/s2a/main-nav.tsx:useEffect:routeSanity",
+                message: "Main nav route sanity check",
+                data: {
+                    invalidCount: invalidItems.length,
+                    invalidHrefs: invalidItems.map((i) => i.href),
+                },
+                timestamp: Date.now(),
+            }),
+        }).catch(() => {});
+        // #endregion
+    }, []);
 
     return (
         <>
@@ -39,6 +69,27 @@ export function MainNav() {
                             <Link
                                 key={href}
                                 href={href}
+                                onClick={() => {
+                                    // #region agent log
+                                    fetch("http://127.0.0.1:7244/ingest/7d8a4cfb-3119-40e9-9e80-feacfcc42c79", {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({
+                                            runId: "pre-fix",
+                                            hypothesisId: "H16",
+                                            location: "components/s2a/main-nav.tsx:desktop:linkClick",
+                                            message: "Main nav link clicked",
+                                            data: {
+                                                href,
+                                                label,
+                                                fromPath: pathname,
+                                                routeImplemented: implementedRoutes.has(href),
+                                            },
+                                            timestamp: Date.now(),
+                                        }),
+                                    }).catch(() => {});
+                                    // #endregion
+                                }}
                                 className={cn(
                                     "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                                     isActive
@@ -77,6 +128,27 @@ export function MainNav() {
                             <Link
                                 key={href}
                                 href={href}
+                                onClick={() => {
+                                    // #region agent log
+                                    fetch("http://127.0.0.1:7244/ingest/7d8a4cfb-3119-40e9-9e80-feacfcc42c79", {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({
+                                            runId: "pre-fix",
+                                            hypothesisId: "H16",
+                                            location: "components/s2a/main-nav.tsx:mobile:linkClick",
+                                            message: "Main nav link clicked",
+                                            data: {
+                                                href,
+                                                label,
+                                                fromPath: pathname,
+                                                routeImplemented: implementedRoutes.has(href),
+                                            },
+                                            timestamp: Date.now(),
+                                        }),
+                                    }).catch(() => {});
+                                    // #endregion
+                                }}
                                 className={cn(
                                     "flex min-w-[64px] flex-col items-center gap-1 px-2 py-1 text-[10px] sm:text-xs transition-colors",
                                     isActive
