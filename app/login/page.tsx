@@ -1,6 +1,6 @@
 "use client";
 
-import { signIn, getSession, useSession } from "next-auth/react";
+import { signIn, getSession } from "next-auth/react";
 import { useState, FormEvent, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
@@ -35,7 +35,6 @@ export default function LoginPage() {
 function LoginForm() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const { status } = useSession();
     const [error, setError] = useState<string | null>(() => {
         // Handle error from NextAuth redirect (e.g., after server-side block)
         const urlError = searchParams.get("error");
@@ -49,18 +48,26 @@ function LoginForm() {
         // #region agent log
         getSession()
             .then((session) => {
+                const callbackCookies =
+                    typeof document !== "undefined"
+                        ? document.cookie
+                              .split(";")
+                              .map((part) => part.trim().split("=")[0])
+                              .filter((name) => name.includes("next-auth"))
+                        : [];
                 fetch("http://127.0.0.1:7244/ingest/7d8a4cfb-3119-40e9-9e80-feacfcc42c79", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                         runId: "pre-fix",
-                        hypothesisId: "H7",
+                        hypothesisId: "H8",
                         location: "app/login/page.tsx:useEffect:getSessionOnCallbackLogin",
                         message: "Session check while on login callbackUrl dashboard",
                         data: {
                             hasSession: Boolean(session),
                             sessionUserEmail: session?.user?.email ?? null,
                             sessionUserId: session?.user?.id ?? null,
+                            nextAuthCookies: callbackCookies,
                         },
                         timestamp: Date.now(),
                     }),
@@ -69,33 +76,6 @@ function LoginForm() {
             .catch(() => {});
         // #endregion
     }, [searchParams]);
-
-    useEffect(() => {
-        if (status !== "authenticated") return;
-        let callbackUrl = searchParams.get("callbackUrl") ?? "/dashboard";
-        if (!callbackUrl.startsWith("/") || callbackUrl.startsWith("//")) {
-            callbackUrl = "/dashboard";
-        }
-        // #region agent log
-        fetch("http://127.0.0.1:7244/ingest/7d8a4cfb-3119-40e9-9e80-feacfcc42c79", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                runId: "post-fix",
-                hypothesisId: "F1",
-                location: "app/login/page.tsx:useEffect:authenticatedRedirect",
-                message: "Authenticated user on login page redirected client-side",
-                data: {
-                    callbackUrl,
-                    status,
-                },
-                timestamp: Date.now(),
-            }),
-        }).catch(() => {});
-        // #endregion
-        router.replace(callbackUrl);
-        router.refresh();
-    }, [status, searchParams, router]);
 
     async function handleSubmit(e: FormEvent<HTMLFormElement>) {
         e.preventDefault();
@@ -152,6 +132,13 @@ function LoginForm() {
 
         setLoading(false);
         const sessionAfterSignIn = await getSession();
+        const cookiesAfterSignIn =
+            typeof document !== "undefined"
+                ? document.cookie
+                      .split(";")
+                      .map((part) => part.trim().split("=")[0])
+                      .filter((name) => name.includes("next-auth"))
+                : [];
         // #region agent log
         fetch("http://127.0.0.1:7244/ingest/7d8a4cfb-3119-40e9-9e80-feacfcc42c79", {
             method: "POST",
@@ -166,6 +153,7 @@ function LoginForm() {
                     sessionUserEmail: sessionAfterSignIn?.user?.email ?? null,
                     sessionUserId: sessionAfterSignIn?.user?.id ?? null,
                     sessionUserRole: sessionAfterSignIn?.user?.role ?? null,
+                    nextAuthCookies: cookiesAfterSignIn,
                 },
                 timestamp: Date.now(),
             }),
