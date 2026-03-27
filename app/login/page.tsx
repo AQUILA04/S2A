@@ -50,12 +50,50 @@ function LoginForm() {
         const formData = new FormData(e.currentTarget);
         const email = formData.get("email") as string;
         const password = formData.get("password") as string;
+        // #region agent log
+        fetch("http://127.0.0.1:7244/ingest/7d8a4cfb-3119-40e9-9e80-feacfcc42c79", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                runId: "pre-fix",
+                hypothesisId: "H1",
+                location: "app/login/page.tsx:handleSubmit:start",
+                message: "Login submit started",
+                data: {
+                    hasEmail: Boolean(email),
+                    emailLength: email?.length ?? 0,
+                    hasPassword: Boolean(password),
+                    callbackUrlParam: searchParams.get("callbackUrl"),
+                },
+                timestamp: Date.now(),
+            }),
+        }).catch(() => {});
+        // #endregion
 
         const result = await signIn("credentials", {
             email,
             password,
             redirect: false,
         });
+        // #region agent log
+        fetch("http://127.0.0.1:7244/ingest/7d8a4cfb-3119-40e9-9e80-feacfcc42c79", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                runId: "pre-fix",
+                hypothesisId: "H2",
+                location: "app/login/page.tsx:handleSubmit:signInResult",
+                message: "SignIn completed",
+                data: {
+                    ok: result?.ok ?? null,
+                    error: result?.error ?? null,
+                    status: result?.status ?? null,
+                    url: result?.url ?? null,
+                },
+                timestamp: Date.now(),
+            }),
+        }).catch(() => {});
+        // #endregion
 
         setLoading(false);
 
@@ -69,6 +107,22 @@ function LoginForm() {
             if (!callbackUrl.startsWith("/") || callbackUrl.startsWith("//")) {
                 callbackUrl = "/dashboard";
             }
+            // #region agent log
+            fetch("http://127.0.0.1:7244/ingest/7d8a4cfb-3119-40e9-9e80-feacfcc42c79", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    runId: "pre-fix",
+                    hypothesisId: "H3",
+                    location: "app/login/page.tsx:handleSubmit:redirect",
+                    message: "Client redirecting after successful signIn",
+                    data: {
+                        callbackUrl,
+                    },
+                    timestamp: Date.now(),
+                }),
+            }).catch(() => {});
+            // #endregion
             router.push(callbackUrl);
             router.refresh();
         }

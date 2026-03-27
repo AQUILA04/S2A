@@ -35,6 +35,24 @@ export async function authorizeCredentials(credentials: Record<"email" | "passwo
     }
 
     const { email, password } = parsed.data;
+    // #region agent log
+    fetch("http://127.0.0.1:7244/ingest/7d8a4cfb-3119-40e9-9e80-feacfcc42c79", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            runId: "pre-fix",
+            hypothesisId: "H2",
+            location: "app/api/auth/[...nextauth]/route.ts:authorizeCredentials:start",
+            message: "Authorize credentials called",
+            data: {
+                hasEmail: Boolean(email),
+                emailLength: email?.length ?? 0,
+                hasPassword: Boolean(password),
+            },
+            timestamp: Date.now(),
+        }),
+    }).catch(() => {});
+    // #endregion
 
     // 2. Fetch member from Supabase (server-side only)
     const supabase = createServerSupabaseClient();
@@ -69,6 +87,24 @@ export async function authorizeCredentials(credentials: Record<"email" | "passwo
     if (!isPasswordValid) {
         throw new Error("Invalid email or password");
     }
+    // #region agent log
+    fetch("http://127.0.0.1:7244/ingest/7d8a4cfb-3119-40e9-9e80-feacfcc42c79", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            runId: "pre-fix",
+            hypothesisId: "H2",
+            location: "app/api/auth/[...nextauth]/route.ts:authorizeCredentials:success",
+            message: "Authorize credentials succeeded",
+            data: {
+                memberId: member.id,
+                role: member.role,
+                status: member.status,
+            },
+            timestamp: Date.now(),
+        }),
+    }).catch(() => {});
+    // #endregion
 
     // 5. Return user object (encoded into the JWT token).
     // 'status' (association/cotisation status) is included so the frontend can
@@ -120,6 +156,25 @@ export const authOptions: AuthOptions = {
                 token.role = (user as { id: string; role: MemberRole; status: MemberStatus }).role;
                 token.status = (user as { id: string; role: MemberRole; status: MemberStatus }).status;
             }
+            // #region agent log
+            fetch("http://127.0.0.1:7244/ingest/7d8a4cfb-3119-40e9-9e80-feacfcc42c79", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    runId: "pre-fix",
+                    hypothesisId: "H4",
+                    location: "app/api/auth/[...nextauth]/route.ts:callbacks:jwt",
+                    message: "JWT callback executed",
+                    data: {
+                        hasUser: Boolean(user),
+                        tokenId: token.id ?? null,
+                        tokenRole: token.role ?? null,
+                        tokenStatus: token.status ?? null,
+                    },
+                    timestamp: Date.now(),
+                }),
+            }).catch(() => {});
+            // #endregion
             return token;
         },
 
@@ -136,6 +191,25 @@ export const authOptions: AuthOptions = {
                 session.user.role = token.role as MemberRole;
                 session.user.status = token.status as MemberStatus;
             }
+            // #region agent log
+            fetch("http://127.0.0.1:7244/ingest/7d8a4cfb-3119-40e9-9e80-feacfcc42c79", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    runId: "pre-fix",
+                    hypothesisId: "H4",
+                    location: "app/api/auth/[...nextauth]/route.ts:callbacks:session",
+                    message: "Session callback executed",
+                    data: {
+                        hasToken: Boolean(token),
+                        sessionUserId: session.user?.id ?? null,
+                        sessionUserRole: session.user?.role ?? null,
+                        sessionUserStatus: session.user?.status ?? null,
+                    },
+                    timestamp: Date.now(),
+                }),
+            }).catch(() => {});
+            // #endregion
             return session;
         },
     },
