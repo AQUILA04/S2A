@@ -68,8 +68,9 @@ export default withAuth(
                 }).catch(() => {});
                 // #endregion
                 
-                // Both /admin and /dashboard require authentication
-                if (pathname.startsWith("/admin") || pathname.startsWith("/dashboard")) {
+                // Only /admin is gated by middleware token checks.
+                // /dashboard uses server-side session guard in page/actions.
+                if (pathname.startsWith("/admin")) {
                     return !!token;
                 }
                 
@@ -85,6 +86,6 @@ export default withAuth(
 );
 
 export const config = {
-    // Match /, /login, /admin/* and /dashboard/* routes (including nested)
-    matcher: ["/", "/login", "/admin/:path*", "/dashboard/:path*"],
+    // Match /, /login and /admin/* routes
+    matcher: ["/", "/login", "/admin/:path*"],
 };
