@@ -1,7 +1,7 @@
 "use client";
 
-import { signIn, getSession } from "next-auth/react";
-import { useState, FormEvent, useEffect } from "react";
+import { signIn } from "next-auth/react";
+import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -41,33 +41,6 @@ function LoginForm() {
         return urlError ? getErrorMessage(urlError) : null;
     });
     const [loading, setLoading] = useState(false);
-    useEffect(() => {
-        const callbackUrl = searchParams.get("callbackUrl");
-        if (callbackUrl !== "/admin/members") return;
-        getSession()
-            .then((session) => {
-                // #region agent log
-                fetch("http://127.0.0.1:7244/ingest/7d8a4cfb-3119-40e9-9e80-feacfcc42c79", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        runId: "pre-fix",
-                        hypothesisId: "H15",
-                        location: "app/login/page.tsx:useEffect:adminCallbackSessionState",
-                        message: "Session state on login page with admin callback",
-                        data: {
-                            callbackUrl,
-                            hasSession: Boolean(session),
-                            sessionUserId: session?.user?.id ?? null,
-                            sessionUserRole: session?.user?.role ?? null,
-                        },
-                        timestamp: Date.now(),
-                    }),
-                }).catch(() => {});
-                // #endregion
-            })
-            .catch(() => {});
-    }, [searchParams]);
 
     async function handleSubmit(e: FormEvent<HTMLFormElement>) {
         e.preventDefault();
@@ -83,26 +56,6 @@ function LoginForm() {
             password,
             redirect: false,
         });
-        // #region agent log
-        fetch("http://127.0.0.1:7244/ingest/7d8a4cfb-3119-40e9-9e80-feacfcc42c79", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                runId: "pre-fix",
-                hypothesisId: "H14",
-                location: "app/login/page.tsx:handleSubmit:signInResult",
-                message: "SignIn result with callback context",
-                data: {
-                    ok: result?.ok ?? null,
-                    error: result?.error ?? null,
-                    status: result?.status ?? null,
-                    callbackUrlParam: searchParams.get("callbackUrl"),
-                    url: result?.url ?? null,
-                },
-                timestamp: Date.now(),
-            }),
-        }).catch(() => {});
-        // #endregion
 
         setLoading(false);
 

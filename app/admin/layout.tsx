@@ -24,60 +24,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     const role = session?.user?.role as MemberRole | undefined;
 
     if (!session) {
-        // #region agent log
-        fetch("http://127.0.0.1:7244/ingest/7d8a4cfb-3119-40e9-9e80-feacfcc42c79", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                runId: "post-fix",
-                hypothesisId: "F4",
-                location: "app/admin/layout.tsx:guard",
-                message: "Admin layout denied: no session",
-                data: {},
-                timestamp: Date.now(),
-            }),
-        }).catch(() => {});
-        // #endregion
         redirect("/login");
     }
 
     if (!role || !hasRequiredRole(role, ADMIN_READ_ROLES)) {
-        // #region agent log
-        fetch("http://127.0.0.1:7244/ingest/7d8a4cfb-3119-40e9-9e80-feacfcc42c79", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                runId: "post-fix",
-                hypothesisId: "F4",
-                location: "app/admin/layout.tsx:guard",
-                message: "Admin layout denied: insufficient role",
-                data: {
-                    role: role ?? null,
-                },
-                timestamp: Date.now(),
-            }),
-        }).catch(() => {});
-        // #endregion
         redirect("/dashboard");
     }
-
-    // #region agent log
-    fetch("http://127.0.0.1:7244/ingest/7d8a4cfb-3119-40e9-9e80-feacfcc42c79", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            runId: "post-fix",
-            hypothesisId: "F4",
-            location: "app/admin/layout.tsx:guard",
-            message: "Admin layout allowed",
-            data: {
-                role,
-                userId: session.user.id ?? null,
-            },
-            timestamp: Date.now(),
-        }),
-    }).catch(() => {});
-    // #endregion
 
     return (
         <>
