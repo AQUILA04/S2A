@@ -73,7 +73,7 @@ function LoginForm() {
                     }),
                 }).catch(() => {});
 
-                fetch("/api/debug-auth")
+                fetch("/api/auth-diagnostics")
                     .then(async (res) => ({ ok: res.ok, status: res.status, body: await res.json() }))
                     .then((edgeProbe) => {
                         fetch("http://127.0.0.1:7244/ingest/7d8a4cfb-3119-40e9-9e80-feacfcc42c79", {
@@ -81,11 +81,11 @@ function LoginForm() {
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({
                                 runId: "pre-fix",
-                                hypothesisId: "H9",
-                                location: "app/login/page.tsx:useEffect:edgeProbeOnCallbackLogin",
-                                message: "Edge token probe while on login callbackUrl dashboard",
+                                hypothesisId: "H12",
+                                location: "app/login/page.tsx:useEffect:authDiagnosticsOnCallbackLogin",
+                                message: "Server diagnostics while on login callbackUrl dashboard",
                                 data: {
-                                    edgeProbe,
+                                    authDiagnostics: edgeProbe,
                                 },
                                 timestamp: Date.now(),
                             }),
@@ -180,7 +180,7 @@ function LoginForm() {
         }).catch(() => {});
         // #endregion
 
-        const edgeProbeAfterSignIn = await fetch("/api/debug-auth")
+        const edgeProbeAfterSignIn = await fetch("/api/auth-diagnostics")
             .then(async (res) => ({ ok: res.ok, status: res.status, body: await res.json() }))
             .catch(() => null);
         // #region agent log
@@ -189,11 +189,11 @@ function LoginForm() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 runId: "pre-fix",
-                hypothesisId: "H9",
-                location: "app/login/page.tsx:handleSubmit:edgeProbeAfterSignIn",
-                message: "Edge token probe right after signIn",
+                hypothesisId: "H12",
+                location: "app/login/page.tsx:handleSubmit:authDiagnosticsAfterSignIn",
+                message: "Server diagnostics right after signIn",
                 data: {
-                    edgeProbeAfterSignIn,
+                    authDiagnosticsAfterSignIn: edgeProbeAfterSignIn,
                 },
                 timestamp: Date.now(),
             }),
@@ -215,10 +215,10 @@ function LoginForm() {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    runId: "post-fix",
-                    hypothesisId: "F2",
-                    location: "app/login/page.tsx:handleSubmit:fullRedirectSignIn",
-                    message: "Retrying signIn with full redirect to persist auth cookie",
+                    runId: "pre-fix",
+                    hypothesisId: "H3",
+                    location: "app/login/page.tsx:handleSubmit:redirect",
+                    message: "Client redirecting after successful signIn",
                     data: {
                         callbackUrl,
                     },
@@ -226,13 +226,8 @@ function LoginForm() {
                 }),
             }).catch(() => {});
             // #endregion
-
-            await signIn("credentials", {
-                email,
-                password,
-                callbackUrl,
-                redirect: true,
-            });
+            router.push(callbackUrl);
+            router.refresh();
         }
     }
 
