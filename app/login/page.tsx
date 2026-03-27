@@ -215,10 +215,10 @@ function LoginForm() {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    runId: "pre-fix",
-                    hypothesisId: "H3",
-                    location: "app/login/page.tsx:handleSubmit:redirect",
-                    message: "Client redirecting after successful signIn",
+                    runId: "post-fix",
+                    hypothesisId: "F2",
+                    location: "app/login/page.tsx:handleSubmit:fullRedirectSignIn",
+                    message: "Retrying signIn with full redirect to persist auth cookie",
                     data: {
                         callbackUrl,
                     },
@@ -226,8 +226,13 @@ function LoginForm() {
                 }),
             }).catch(() => {});
             // #endregion
-            router.push(callbackUrl);
-            router.refresh();
+
+            await signIn("credentials", {
+                email,
+                password,
+                callbackUrl,
+                redirect: true,
+            });
         }
     }
 
