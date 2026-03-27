@@ -49,7 +49,7 @@ export default withAuth(
             // Returning false will redirect to the sign-in page
             authorized: ({ req, token }) => {
                 const { pathname } = req.nextUrl;
-                if (pathname.startsWith("/admin") || pathname === "/login") {
+                if (pathname === "/login") {
                     // #region agent log
                     fetch("http://127.0.0.1:7244/ingest/7d8a4cfb-3119-40e9-9e80-feacfcc42c79", {
                         method: "POST",
@@ -70,12 +70,6 @@ export default withAuth(
                     // #endregion
                 }
 
-                // Only /admin is gated by middleware token checks.
-                // /dashboard uses server-side session guard in page/actions.
-                if (pathname.startsWith("/admin")) {
-                    return !!token;
-                }
-
                 // Let other routes (like / or /login) pass through to the middleware function
                 return true;
             },
@@ -88,6 +82,7 @@ export default withAuth(
 );
 
 export const config = {
-    // Match /, /login and /admin/* routes
-    matcher: ["/", "/login", "/admin/:path*"],
+    // Match / and /login routes.
+    // /admin is protected server-side in admin layout/actions.
+    matcher: ["/", "/login"],
 };
