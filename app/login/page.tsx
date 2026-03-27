@@ -72,6 +72,26 @@ function LoginForm() {
                         timestamp: Date.now(),
                     }),
                 }).catch(() => {});
+
+                fetch("/api/debug-auth")
+                    .then(async (res) => ({ ok: res.ok, status: res.status, body: await res.json() }))
+                    .then((edgeProbe) => {
+                        fetch("http://127.0.0.1:7244/ingest/7d8a4cfb-3119-40e9-9e80-feacfcc42c79", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                runId: "pre-fix",
+                                hypothesisId: "H9",
+                                location: "app/login/page.tsx:useEffect:edgeProbeOnCallbackLogin",
+                                message: "Edge token probe while on login callbackUrl dashboard",
+                                data: {
+                                    edgeProbe,
+                                },
+                                timestamp: Date.now(),
+                            }),
+                        }).catch(() => {});
+                    })
+                    .catch(() => {});
             })
             .catch(() => {});
         // #endregion
@@ -154,6 +174,26 @@ function LoginForm() {
                     sessionUserId: sessionAfterSignIn?.user?.id ?? null,
                     sessionUserRole: sessionAfterSignIn?.user?.role ?? null,
                     nextAuthCookies: cookiesAfterSignIn,
+                },
+                timestamp: Date.now(),
+            }),
+        }).catch(() => {});
+        // #endregion
+
+        const edgeProbeAfterSignIn = await fetch("/api/debug-auth")
+            .then(async (res) => ({ ok: res.ok, status: res.status, body: await res.json() }))
+            .catch(() => null);
+        // #region agent log
+        fetch("http://127.0.0.1:7244/ingest/7d8a4cfb-3119-40e9-9e80-feacfcc42c79", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                runId: "pre-fix",
+                hypothesisId: "H9",
+                location: "app/login/page.tsx:handleSubmit:edgeProbeAfterSignIn",
+                message: "Edge token probe right after signIn",
+                data: {
+                    edgeProbeAfterSignIn,
                 },
                 timestamp: Date.now(),
             }),
