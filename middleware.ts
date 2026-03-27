@@ -49,31 +49,33 @@ export default withAuth(
             // Returning false will redirect to the sign-in page
             authorized: ({ req, token }) => {
                 const { pathname } = req.nextUrl;
-                // #region agent log
-                fetch("http://127.0.0.1:7244/ingest/7d8a4cfb-3119-40e9-9e80-feacfcc42c79", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        runId: "pre-fix",
-                        hypothesisId: "H5",
-                        location: "middleware.ts:callbacks:authorized",
-                        message: "Middleware authorized callback",
-                        data: {
-                            pathname,
-                            hasToken: Boolean(token),
-                            tokenRole: token?.role ?? null,
-                        },
-                        timestamp: Date.now(),
-                    }),
-                }).catch(() => {});
-                // #endregion
-                
+                if (pathname.startsWith("/admin") || pathname === "/login") {
+                    // #region agent log
+                    fetch("http://127.0.0.1:7244/ingest/7d8a4cfb-3119-40e9-9e80-feacfcc42c79", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            runId: "pre-fix",
+                            hypothesisId: "H13",
+                            location: "middleware.ts:callbacks:authorized",
+                            message: "Middleware token check for login/admin route",
+                            data: {
+                                pathname,
+                                hasToken: Boolean(token),
+                                tokenRole: token?.role ?? null,
+                            },
+                            timestamp: Date.now(),
+                        }),
+                    }).catch(() => {});
+                    // #endregion
+                }
+
                 // Only /admin is gated by middleware token checks.
                 // /dashboard uses server-side session guard in page/actions.
                 if (pathname.startsWith("/admin")) {
                     return !!token;
                 }
-                
+
                 // Let other routes (like / or /login) pass through to the middleware function
                 return true;
             },

@@ -4,7 +4,6 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { Suspense } from "react";
 import DashboardLoading from "./loading";
 import { DashboardContent } from "./components/dashboard-content";
-import { DebugDashboardArrival } from "./components/debug-dashboard-arrival";
 
 export default async function DashboardPage() {
     const session = await getServerSession(authOptions);
@@ -23,7 +22,6 @@ export default async function DashboardPage() {
 
     return (
         <main className="flex min-h-screen flex-col p-8">
-            <DebugDashboardArrival />
             <h1 className="text-2xl font-bold text-gray-900">Tableau de bord</h1>
             <p className="mt-2 text-gray-600">
                 Bienvenue, {userName} ({userRole})

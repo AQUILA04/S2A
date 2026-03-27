@@ -41,60 +41,32 @@ function LoginForm() {
         return urlError ? getErrorMessage(urlError) : null;
     });
     const [loading, setLoading] = useState(false);
-
     useEffect(() => {
-        const isCallbackLogin = searchParams.get("callbackUrl") === "/dashboard";
-        if (!isCallbackLogin) return;
-        // #region agent log
+        const callbackUrl = searchParams.get("callbackUrl");
+        if (callbackUrl !== "/admin/members") return;
         getSession()
             .then((session) => {
-                const callbackCookies =
-                    typeof document !== "undefined"
-                        ? document.cookie
-                              .split(";")
-                              .map((part) => part.trim().split("=")[0])
-                              .filter((name) => name.includes("next-auth"))
-                        : [];
+                // #region agent log
                 fetch("http://127.0.0.1:7244/ingest/7d8a4cfb-3119-40e9-9e80-feacfcc42c79", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                         runId: "pre-fix",
-                        hypothesisId: "H8",
-                        location: "app/login/page.tsx:useEffect:getSessionOnCallbackLogin",
-                        message: "Session check while on login callbackUrl dashboard",
+                        hypothesisId: "H15",
+                        location: "app/login/page.tsx:useEffect:adminCallbackSessionState",
+                        message: "Session state on login page with admin callback",
                         data: {
+                            callbackUrl,
                             hasSession: Boolean(session),
-                            sessionUserEmail: session?.user?.email ?? null,
                             sessionUserId: session?.user?.id ?? null,
-                            nextAuthCookies: callbackCookies,
+                            sessionUserRole: session?.user?.role ?? null,
                         },
                         timestamp: Date.now(),
                     }),
                 }).catch(() => {});
-
-                fetch("/api/auth-diagnostics")
-                    .then(async (res) => ({ ok: res.ok, status: res.status, body: await res.json() }))
-                    .then((edgeProbe) => {
-                        fetch("http://127.0.0.1:7244/ingest/7d8a4cfb-3119-40e9-9e80-feacfcc42c79", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                                runId: "pre-fix",
-                                hypothesisId: "H12",
-                                location: "app/login/page.tsx:useEffect:authDiagnosticsOnCallbackLogin",
-                                message: "Server diagnostics while on login callbackUrl dashboard",
-                                data: {
-                                    authDiagnostics: edgeProbe,
-                                },
-                                timestamp: Date.now(),
-                            }),
-                        }).catch(() => {});
-                    })
-                    .catch(() => {});
+                // #endregion
             })
             .catch(() => {});
-        // #endregion
     }, [searchParams]);
 
     async function handleSubmit(e: FormEvent<HTMLFormElement>) {
@@ -105,25 +77,6 @@ function LoginForm() {
         const formData = new FormData(e.currentTarget);
         const email = formData.get("email") as string;
         const password = formData.get("password") as string;
-        // #region agent log
-        fetch("http://127.0.0.1:7244/ingest/7d8a4cfb-3119-40e9-9e80-feacfcc42c79", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                runId: "pre-fix",
-                hypothesisId: "H1",
-                location: "app/login/page.tsx:handleSubmit:start",
-                message: "Login submit started",
-                data: {
-                    hasEmail: Boolean(email),
-                    emailLength: email?.length ?? 0,
-                    hasPassword: Boolean(password),
-                    callbackUrlParam: searchParams.get("callbackUrl"),
-                },
-                timestamp: Date.now(),
-            }),
-        }).catch(() => {});
-        // #endregion
 
         const result = await signIn("credentials", {
             email,
@@ -136,13 +89,14 @@ function LoginForm() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 runId: "pre-fix",
-                hypothesisId: "H2",
+                hypothesisId: "H14",
                 location: "app/login/page.tsx:handleSubmit:signInResult",
-                message: "SignIn completed",
+                message: "SignIn result with callback context",
                 data: {
                     ok: result?.ok ?? null,
                     error: result?.error ?? null,
                     status: result?.status ?? null,
+                    callbackUrlParam: searchParams.get("callbackUrl"),
                     url: result?.url ?? null,
                 },
                 timestamp: Date.now(),
@@ -151,54 +105,6 @@ function LoginForm() {
         // #endregion
 
         setLoading(false);
-        const sessionAfterSignIn = await getSession();
-        const cookiesAfterSignIn =
-            typeof document !== "undefined"
-                ? document.cookie
-                      .split(";")
-                      .map((part) => part.trim().split("=")[0])
-                      .filter((name) => name.includes("next-auth"))
-                : [];
-        // #region agent log
-        fetch("http://127.0.0.1:7244/ingest/7d8a4cfb-3119-40e9-9e80-feacfcc42c79", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                runId: "pre-fix",
-                hypothesisId: "H6",
-                location: "app/login/page.tsx:handleSubmit:getSessionAfterSignIn",
-                message: "Session state right after signIn",
-                data: {
-                    hasSession: Boolean(sessionAfterSignIn),
-                    sessionUserEmail: sessionAfterSignIn?.user?.email ?? null,
-                    sessionUserId: sessionAfterSignIn?.user?.id ?? null,
-                    sessionUserRole: sessionAfterSignIn?.user?.role ?? null,
-                    nextAuthCookies: cookiesAfterSignIn,
-                },
-                timestamp: Date.now(),
-            }),
-        }).catch(() => {});
-        // #endregion
-
-        const edgeProbeAfterSignIn = await fetch("/api/auth-diagnostics")
-            .then(async (res) => ({ ok: res.ok, status: res.status, body: await res.json() }))
-            .catch(() => null);
-        // #region agent log
-        fetch("http://127.0.0.1:7244/ingest/7d8a4cfb-3119-40e9-9e80-feacfcc42c79", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                runId: "pre-fix",
-                hypothesisId: "H12",
-                location: "app/login/page.tsx:handleSubmit:authDiagnosticsAfterSignIn",
-                message: "Server diagnostics right after signIn",
-                data: {
-                    authDiagnosticsAfterSignIn: edgeProbeAfterSignIn,
-                },
-                timestamp: Date.now(),
-            }),
-        }).catch(() => {});
-        // #endregion
 
         if (result?.error) {
             // Map internal error code to a French user-friendly message
@@ -210,22 +116,6 @@ function LoginForm() {
             if (!callbackUrl.startsWith("/") || callbackUrl.startsWith("//")) {
                 callbackUrl = "/dashboard";
             }
-            // #region agent log
-            fetch("http://127.0.0.1:7244/ingest/7d8a4cfb-3119-40e9-9e80-feacfcc42c79", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    runId: "pre-fix",
-                    hypothesisId: "H3",
-                    location: "app/login/page.tsx:handleSubmit:redirect",
-                    message: "Client redirecting after successful signIn",
-                    data: {
-                        callbackUrl,
-                    },
-                    timestamp: Date.now(),
-                }),
-            }).catch(() => {});
-            // #endregion
             router.push(callbackUrl);
             router.refresh();
         }
