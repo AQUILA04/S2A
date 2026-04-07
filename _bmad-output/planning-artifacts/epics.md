@@ -151,6 +151,34 @@ So that I can bulk create members efficiently without manual data entry.
 **And** the system strictly validates that `TÉLÉPHONE` and `EMAIL` do not already exist in the database, handling duplication errors gracefully
 **And** successfully creates the valid new members with a "Pending Activation" status (consistent with Story 1.2)
 
+### Story 1.7: Scalable User Notifications & Activation
+
+As the System,
+I want to asynchronously notify newly created members (single or mass import) via WhatsApp or SMS,
+So that they receive a secure activation link to set their password without overwhelming third-party API rate limits.
+
+**Acceptance Criteria:**
+
+**Given** a new member is created (via `/admin/members/new` or `/admin/members` Mass Import)
+**When** their account is inserted into the database
+**Then** a `PENDING` record is created in the `NotificationQueue` table
+**And** a secure one-time activation token link is generated instead of a clear-text password
+**And** a Supabase `pg_cron` worker processes the queue asynchronously to dispatch a rich WhatsApp message or a concise (<160 chars) fallback SMS containing the activation link.
+
+### Story 1.8: Notification Dispatch Control (Admin Console)
+
+As an Administrator,
+I want a global toggle to mute automatic notifications and an interface to manually dispatch them,
+So that I can import data silently without spamming users, and trigger notifications only when I am ready.
+
+**Acceptance Criteria:**
+
+**Given** the President or GS is in the Admin Settings
+**When** they disable "Global Automatic Notifications"
+**Then** the background queue processor pauses, leaving new records safely as `PENDING_PAUSED` or `PENDING`
+**And** when they re-enable the toggle, the queue automatically resumes processing the backlog
+**And** they can navigate to a "Dispatch Console" to select specific pending users and manually force notification delivery.
+
 ## Epic 2: Treasury & Contribution Management
 
 Members can declare payments via multiple channels, and the Board can validate these payments and configure blackout months.

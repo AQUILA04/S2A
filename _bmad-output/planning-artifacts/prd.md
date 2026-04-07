@@ -98,6 +98,14 @@ The system calculates balances using the following server-side algorithm:
 * **Story 1.4: Member Login & Dashboard Access**
 * *Description*: Members log in to access their specific personal view.
 
+* **Story 1.7: Scalable User Notifications & Activation**
+* *Description*: Asynchronous Twilio (WhatsApp & SMS) notification queue integrated with single and mass member creation, providing a secure Magic Link to activate accounts without clear-text passwords.
+* *AC*: SMS (<160 chars), asynchronous `pg_cron` queue, Twilio integration, no plain text passwords, 228 formatting.
+
+* **Story 1.8: Notification Dispatch Control (Admin Console)**
+* *Description*: Global toggle to pause/resume automatic notification sending, and UI tools to manually trigger pending notifications individually or in bulk.
+* *AC*: Global pause switch, manual dispatch UI.
+
 
 
 ### EPIC 2: TIME & HISTORY (2016+)
