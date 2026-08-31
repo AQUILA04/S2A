@@ -30,7 +30,6 @@ export default function NewMemberPage() {
         join_date: new Date().toISOString().split("T")[0],
         monthly_fee: "",
         role: "MEMBER" as MemberRole,
-        password: "Temporaire123!" // Hidden password since mockup doesn't show it, user clicks link
     });
 
     const [errors, setErrors] = useState<any>({});
@@ -64,7 +63,7 @@ export default function NewMemberPage() {
             return;
         }
 
-        setSuccessMessage("Membre créé avec succès !");
+        setSuccessMessage("Membre créé ! Un code de vérification a été envoyé à son numéro.");
         setTimeout(() => {
             router.push("/admin/members");
         }, 1200);
@@ -161,7 +160,7 @@ export default function NewMemberPage() {
                                         type="tel"
                                         value={formData.phone}
                                         onChange={handleChange}
-                                        placeholder="06 12 34 56 78"
+                                        placeholder="+228 90 12 34 56"
                                         className="w-full pl-4 pr-10 py-2.5 bg-white border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#002366]/20 transition-all placeholder:text-muted-foreground/50 border-black/10"
                                     />
                                     <Phone className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/50 w-4 h-4" />
@@ -236,7 +235,7 @@ export default function NewMemberPage() {
                             <Info className="w-5 h-5 text-[#002366] shrink-0 fill-[#002366]/10" />
                             <div className="text-xs text-[#001030] leading-relaxed">
                                 <span className="font-bold text-[#002366] block mb-0.5">Note importante</span>
-                                Lors de la validation, un <i>lien d'activation</i> sera automatiquement envoyé à l'adresse email renseignée ci-dessus pour permettre au membre de définir son mot de passe.
+                                Lors de la validation, un <i>code de vérification</i> sera automatiquement envoyé au numéro de téléphone renseigné ci-dessus pour permettre au membre d&apos;activer son compte et définir son mot de passe.
                             </div>
                         </div>
 

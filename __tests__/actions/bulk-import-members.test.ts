@@ -24,6 +24,11 @@ jest.mock("@/lib/audit/logger", () => ({
     logAudit: jest.fn().mockResolvedValue(undefined),
 }));
 
+jest.mock("@/lib/services/activation-otp.service", () => ({
+    normalizePhoneToE164: jest.requireActual("@/lib/phone/normalize").normalizePhoneToE164,
+    sendActivationOtp: jest.fn(() => Promise.resolve({ ok: true })),
+}));
+
 describe("bulkImportMembers Action", () => {
     let mockSupabase: any;
 
@@ -34,7 +39,12 @@ describe("bulkImportMembers Action", () => {
             from: jest.fn().mockReturnThis(),
             select: jest.fn().mockReturnThis(),
             or: jest.fn(),
-            insert: jest.fn(),
+            insert: jest.fn().mockReturnValue({
+                select: jest.fn().mockResolvedValue({
+                    data: [{ id: "inserted-id", phone: "+22890123456" }],
+                    error: null,
+                }),
+            }),
         };
 
         (createServerSupabaseClient as jest.Mock).mockReturnValue(mockSupabase);
@@ -43,7 +53,6 @@ describe("bulkImportMembers Action", () => {
     it("should successfully import members with no duplicates", async () => {
         // Mock existing members as empty arrays
         mockSupabase.or.mockResolvedValue({ data: [], error: null });
-        mockSupabase.insert.mockResolvedValue({ error: null });
 
         const payload = [
             {
@@ -51,7 +60,7 @@ describe("bulkImportMembers Action", () => {
                 first_name: "John",
                 last_name: "Doe",
                 email: "john@example.com",
-                phone: "12345678",
+                phone: "90123456",
                 join_date: "2023-01-01",
                 monthly_fee: 1000,
                 role: "MEMBER" as const,
@@ -71,36 +80,35 @@ describe("bulkImportMembers Action", () => {
         // Mock existing members containing duplicate email and phone
         mockSupabase.or.mockResolvedValue({ 
             data: [
-                { email: "john@example.com", phone: "existing-phone" }, // duplicate email
-                { email: "other@example.com", phone: "87654321" } // duplicate phone
+                { email: "john@example.com", phone: "existing-phone" },
+                { email: "other@example.com", phone: "+22890123457" }
             ], 
             error: null 
         });
-        mockSupabase.insert.mockResolvedValue({ error: null });
 
         const payload = [
-            { // Duplicate email (will fail)
+            {
                 id: "uuid-1",
                 first_name: "John",
                 last_name: "Doe",
                 email: "john@example.com",
-                phone: "11111111",
+                phone: "90123458",
                 role: "MEMBER" as const,
             },
-            { // Duplicate phone (will fail)
+            {
                 id: "uuid-2",
                 first_name: "Jane",
                 last_name: "Smith",
                 email: "jane.new@example.com",
-                phone: "87654321",
+                phone: "90123457",
                 role: "MEMBER" as const,
             },
-            { // Valid member
+            {
                 id: "uuid-3",
                 first_name: "Valid",
                 last_name: "User",
                 email: "valid@example.com",
-                phone: "99999999",
+                phone: "90123459",
                 role: "MEMBER" as const,
             }
         ];

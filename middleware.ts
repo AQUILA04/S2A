@@ -29,6 +29,14 @@ export default withAuth(
             return NextResponse.next();
         }
 
+        // /activate route: public account setup (OTP + password)
+        if (pathname === "/activate") {
+            if (token) {
+                return NextResponse.redirect(new URL("/dashboard", request.url));
+            }
+            return NextResponse.next();
+        }
+
         // /admin/* route protection (AC2: prevent unauthorized access)
         if (pathname.startsWith("/admin")) {
             const role = token?.role as MemberRole | undefined;
@@ -60,7 +68,6 @@ export default withAuth(
 );
 
 export const config = {
-    // Match / and /login routes.
-    // /admin is protected server-side in admin layout/actions.
-    matcher: ["/", "/login"],
+    // Match public auth routes. /admin is protected server-side in admin layout/actions.
+    matcher: ["/", "/login", "/activate"],
 };
