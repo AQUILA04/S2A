@@ -11,6 +11,10 @@ dist-scripts/
 .env.local
 .env.*.local
 .env.production
+deploy/.env.prod
+
+# Contabo secrets summary (local only)
+*-contabo-secrets.md
 
 # OS generated files
 .DS_Store

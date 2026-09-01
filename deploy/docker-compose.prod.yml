@@ -1,0 +1,41 @@
+# Amicale S2A — Contabo production stack
+# Prerequisite: shared Traefik on network `traefik-public` (HTTPS + Let's Encrypt).
+# Database: Supabase cloud (no Postgres container on VPS).
+
+services:
+  app:
+    image: ${IMAGE:-ghcr.io/aquila04/s2a:latest}
+    container_name: s2a-app
+    restart: unless-stopped
+    env_file:
+      - .env.prod
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: "0.0.0.0"
+    networks:
+      - traefik-public
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik-public
+      - traefik.http.routers.s2a.rule=Host(`${APP_HOST:-s2a.optimizesolux.com}`)
+      - traefik.http.routers.s2a.entrypoints=websecure
+      - traefik.http.routers.s2a.tls=true
+      - traefik.http.routers.s2a.tls.certresolver=letsencrypt
+      - traefik.http.services.s2a.loadbalancer.server.port=3000
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://127.0.0.1:3000/login',r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  traefik-public:
+    external: true

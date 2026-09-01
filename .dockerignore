@@ -1,0 +1,36 @@
+# Dependencies
+node_modules
+.npm
+
+# Build output
+.next
+out
+dist-scripts
+coverage
+
+# Environment (secrets stay on server / CI)
+.env
+.env.*
+!.env.example
+
+# Git & IDE
+.git
+.gitignore
+.vscode
+.idea
+
+# Docs & BMAD (not needed in image)
+_bmad
+_bmad-output
+docs
+.cursor
+.agent
+.gemini
+
+# Tests
+__tests__
+__mocks__
+jest.config.ts
+
+# Deploy artefacts (built separately on VPS)
+deploy/.env.prod

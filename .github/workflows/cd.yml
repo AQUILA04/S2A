@@ -1,0 +1,112 @@
+name: CD Contabo
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Docker image tag"
+        required: false
+        default: latest
+  push:
+    branches:
+      - "release/**"
+
+concurrency:
+  group: cd-contabo-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: aquila04/s2a
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.meta.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ inputs.image_tag || 'latest' }}
+            type=sha,prefix=
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+            NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: prod
+    env:
+      IMAGE_TAG: ${{ inputs.image_tag || 'latest' }}
+      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '/opt/optimizesolux/s2a' }}
+      IMAGE: ghcr.io/aquila04/s2a:${{ inputs.image_tag || 'latest' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Write deploy/.env.prod
+        env:
+          APP_HOST: ${{ secrets.APP_HOST }}
+          NEXTAUTH_URL: ${{ secrets.NEXTAUTH_URL }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
+          NOTIFICATION_HUB_BASE_URL: ${{ secrets.NOTIFICATION_HUB_BASE_URL }}
+          NOTIFICATION_HUB_TENANT_ID: ${{ secrets.NOTIFICATION_HUB_TENANT_ID }}
+          NOTIFICATION_HUB_OAUTH_TOKEN_URI: ${{ secrets.NOTIFICATION_HUB_OAUTH_TOKEN_URI }}
+          NOTIFICATION_HUB_OAUTH_CLIENT_ID: ${{ secrets.NOTIFICATION_HUB_OAUTH_CLIENT_ID }}
+          NOTIFICATION_HUB_OAUTH_CLIENT_SECRET: ${{ secrets.NOTIFICATION_HUB_OAUTH_CLIENT_SECRET }}
+        run: |
+          export IMAGE="${IMAGE}"
+          bash deploy/init.sh
+
+      - name: Setup SSH
+        run: |
+          install -m 700 -d ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.PROD_SERVER_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Rsync deploy files
+        env:
+          PROD_SERVER_HOST: ${{ secrets.PROD_SERVER_HOST }}
+          PROD_SERVER_USER: ${{ secrets.PROD_SERVER_USER }}
+        run: |
+          rsync -avz -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes" \
+            deploy/ "${PROD_SERVER_USER}@${PROD_SERVER_HOST}:${DEPLOY_PATH}/"
+
+      - name: Pull and restart
+        env:
+          PROD_SERVER_HOST: ${{ secrets.PROD_SERVER_HOST }}
+          PROD_SERVER_USER: ${{ secrets.PROD_SERVER_USER }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
+            "${PROD_SERVER_USER}@${PROD_SERVER_HOST}" \
+            "cd ${DEPLOY_PATH} && bash deploy.sh ${IMAGE_TAG}"
