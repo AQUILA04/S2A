@@ -68,6 +68,12 @@ jest.mock("@/lib/audit/logger", () => ({
     logAudit: jest.fn(() => Promise.resolve()),
 }));
 
+jest.mock("@/lib/services/activation-otp.service", () => ({
+    normalizePhoneToE164: jest.requireActual("@/lib/phone/normalize").normalizePhoneToE164,
+    sendActivationOtp: jest.fn(() => Promise.resolve({ ok: true })),
+    verifyActivationOtp: jest.fn(),
+}));
+
 import { logAudit } from "@/lib/audit/logger";
 
 // ============================================================
@@ -101,11 +107,10 @@ describe("createMemberSchema — Zod validation", () => {
         first_name: "Jean",
         last_name: "Dupont",
         email: "jean.dupont@amicale.org",
-        phone: "+225 07 00 00 00 01",
+        phone: "+22890123456",
         join_date: "2026-01-01",
         monthly_fee: 10000,
         role: "MEMBER" as const,
-        password: "SecurePass123",
     };
 
     it("should pass for a fully valid payload", () => {
@@ -137,15 +142,6 @@ describe("createMemberSchema — Zod validation", () => {
         if (!result.success) {
             const fields = result.error.errors.map((e) => e.path[0]);
             expect(fields).toContain("monthly_fee");
-        }
-    });
-
-    it("should fail when password is shorter than 8 characters", () => {
-        const result = createMemberSchema.safeParse({ ...validPayload, password: "short" });
-        expect(result.success).toBe(false);
-        if (!result.success) {
-            const fields = result.error.errors.map((e) => e.path[0]);
-            expect(fields).toContain("password");
         }
     });
 
@@ -189,11 +185,10 @@ describe("createMember — duplicate email constraint", () => {
             first_name: "Jean",
             last_name: "Dupont",
             email: "duplicate@amicale.org",
-            phone: "+225 07 00 00 00 02",
+            phone: "+22890123457",
             join_date: "2026-01-01",
             monthly_fee: 10000,
             role: "MEMBER",
-            password: "SecurePass123",
         });
 
         expect(result.error).toBe("Validation failed");
@@ -213,7 +208,7 @@ describe("createMember — AuditLog write", () => {
             first_name: "Jean",
             last_name: "Dupont",
             email: "jean@amicale.org",
-            phone: "+225 07 00 00 00 03",
+            phone: "+22890123458",
             join_date: "2026-01-01",
             monthly_fee: 10000,
             status: "ACTIVE",
@@ -241,11 +236,10 @@ describe("createMember — AuditLog write", () => {
             first_name: "Jean",
             last_name: "Dupont",
             email: "jean@amicale.org",
-            phone: "+225 07 00 00 00 03",
+            phone: "+22890123458",
             join_date: "2026-01-01",
             monthly_fee: 10000,
             role: "MEMBER",
-            password: "SecurePass123",
         });
 
         // The member should be returned
@@ -319,11 +313,10 @@ describe("createMember — UNAUTHORIZED for TREASURER", () => {
             first_name: "Jean",
             last_name: "Test",
             email: "treasurer-test@amicale.org",
-            phone: "+225 07 00 00 00 04",
+            phone: "+22890123459",
             join_date: "2026-01-01",
             monthly_fee: 10000,
             role: "MEMBER",
-            password: "SecurePass123",
         });
 
         expect(result.error).toMatch(/UNAUTHORIZED/i);
@@ -365,7 +358,7 @@ describe("createMember — account_status default", () => {
             first_name: "Alice",
             last_name: "Martin",
             email: "alice.martin@amicale.org",
-            phone: "+225 07 00 00 00 05",
+            phone: "+22890123460",
             join_date: "2026-01-01",
             monthly_fee: 10000,
             status: "ACTIVE",
@@ -385,11 +378,10 @@ describe("createMember — account_status default", () => {
             first_name: "Alice",
             last_name: "Martin",
             email: "alice.martin@amicale.org",
-            phone: "+225 07 00 00 00 05",
+            phone: "+22890123460",
             join_date: "2026-01-01",
             monthly_fee: 10000,
             role: "MEMBER",
-            password: "SecurePass123",
         });
 
         // Data is returned (successful creation)

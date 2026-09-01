@@ -23,6 +23,7 @@ function getErrorMessage(error: string): string {
 }
 
 import { Suspense } from "react";
+import Link from "next/link";
 
 export default function LoginPage() {
     return (
@@ -36,10 +37,14 @@ function LoginForm() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [error, setError] = useState<string | null>(() => {
-        // Handle error from NextAuth redirect (e.g., after server-side block)
         const urlError = searchParams.get("error");
         return urlError ? getErrorMessage(urlError) : null;
     });
+    const [success, setSuccess] = useState<string | null>(() =>
+        searchParams.get("activated") === "1"
+            ? "Compte activé avec succès. Vous pouvez vous connecter."
+            : null
+    );
     const [loading, setLoading] = useState(false);
 
     async function handleSubmit(e: FormEvent<HTMLFormElement>) {
@@ -91,6 +96,16 @@ function LoginForm() {
                 <CardContent>
                     <form onSubmit={handleSubmit} className="space-y-5" noValidate>
                         {/* Error message — uses role="alert" for screen reader accessibility */}
+                        {success && (
+                            <div
+                                role="status"
+                                aria-live="polite"
+                                className="rounded-lg border border-success/30 bg-success/10 px-4 py-3 text-sm text-success"
+                            >
+                                {success}
+                            </div>
+                        )}
+
                         {error && (
                             <div
                                 role="alert"
@@ -147,6 +162,13 @@ function LoginForm() {
                             {loading ? "Connexion en cours..." : "Se connecter"}
                         </Button>
                     </form>
+
+                    <p className="mt-6 text-center text-sm text-muted-foreground">
+                        Première connexion ?{" "}
+                        <Link href="/activate" className="text-primary font-medium hover:underline">
+                            Activez votre compte
+                        </Link>
+                    </p>
                 </CardContent>
             </Card>
         </main>

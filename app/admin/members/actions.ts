@@ -15,6 +15,10 @@ import {
     type ValidatedMemberJson,
 } from "./types";
 import { logAudit } from "@/lib/audit/logger";
+import {
+    normalizePhoneToE164,
+    sendActivationOtp,
+} from "@/lib/services/activation-otp.service";
 
 // (schemas and ActionResult are imported from ./types — do NOT re-export from a 'use server' file)
 
@@ -125,16 +129,27 @@ export async function createMember(
         return { error: "Validation failed", fieldErrors };
     }
 
-    const { password, ...memberData } = parsed.data;
+    const memberData = parsed.data;
 
-    // 3. Hash the initial password
-    const password_hash = await hashPassword(password);
+    const e164Phone = normalizePhoneToE164(memberData.phone);
+    if (!e164Phone) {
+        return {
+            error: "Validation failed",
+            fieldErrors: {
+                phone: ["Numéro invalide (format Togo attendu, ex. +22890123456)"],
+            },
+        };
+    }
+
+    // Placeholder hash until member completes OTP activation
+    const password_hash = await hashPassword(crypto.randomUUID());
 
     const supabase = createServerSupabaseClient();
 
     // 4. Insert member
     const insertPayload = {
         ...memberData,
+        phone: e164Phone,
         password_hash,
         status: "ACTIVE" as const,
         account_status: "PENDING_ACTIVATION" as const,
@@ -179,7 +194,19 @@ export async function createMember(
         },
     });
 
-    return { data: createdMember as Member };
+    const member = createdMember as Member;
+    const otpResult = await sendActivationOtp(
+        e164Phone,
+        member.id,
+        `s2a-activation-${member.id}`
+    );
+    if (!otpResult.ok) {
+        console.warn(
+            `[createMember] OTP send failed for member ${member.id}: ${otpResult.error}`
+        );
+    }
+
+    return { data: member };
 }
 
 // ============================================================
@@ -285,7 +312,7 @@ export async function getMemberById(
 
 export async function bulkImportMembers(
     payload: ValidatedMemberJson[]
-): Promise<ActionResult<{ successCount: number; failureCount: number; failedRows: { row: number; errors: string[] }[] }>> {
+): Promise<ActionResult<{ successCount: number; failureCount: number; failedRows: { row: number; errors: string[] }[]; otpFailureCount?: number }>> {
     let actor: { id: string; role: MemberRole };
     try {
         actor = await requireWriteAccess();
@@ -301,26 +328,37 @@ export async function bulkImportMembers(
     
     // Track total successes and failures across chunks
     let totalSuccessCount = 0;
+    let otpFailureCount = 0;
     const totalFailedRows: { row: number; errors: string[] }[] = [];
+    const insertedForOtp: { id: string; phone: string }[] = [];
 
     // Process in chunks of 50 to prevent 414 URI Too Long limits
     const CHUNK_SIZE = 50;
     for (let c = 0; c < payload.length; c += CHUNK_SIZE) {
         const chunk = payload.slice(c, c + CHUNK_SIZE);
         const chunkEmails = chunk.map(m => m.email).filter(Boolean);
-        const chunkPhones = chunk.map(m => m.phone).filter(Boolean);
+        const chunkPhoneValues = [
+            ...new Set(
+                chunk.flatMap((m) => {
+                    const e164 = normalizePhoneToE164(m.phone);
+                    return e164 ? [m.phone, e164] : [m.phone];
+                })
+            ),
+        ];
 
         const { data: existingMembers, error: fetchError } = await supabase
             .from("Members")
             .select("email, phone")
-            .or(`email.in.(${chunkEmails.map(e => `"${e}"`).join(",")}),phone.in.(${chunkPhones.map(p => `"${p}"`).join(",")})`);
+            .or(`email.in.(${chunkEmails.map(e => `"${e}"`).join(",")}),phone.in.(${chunkPhoneValues.map(p => `"${p}"`).join(",")})`);
 
         if (fetchError) {
             return { error: `Validation de duplicata échouée pour un lot: ${fetchError.message}` };
         }
 
         const existingEmails = new Set(existingMembers?.map(m => m.email));
-        const existingPhones = new Set(existingMembers?.map(m => m.phone));
+        const existingPhones = new Set(
+            existingMembers?.map((m) => normalizePhoneToE164(m.phone) ?? m.phone)
+        );
 
         const toInsert = [];
 
@@ -328,41 +366,68 @@ export async function bulkImportMembers(
             const member = chunk[i];
             const rowNum = c + i + 2; 
             const errors = [];
+            const e164Phone = normalizePhoneToE164(member.phone);
             
             if (existingEmails.has(member.email)) {
                 errors.push("Email existe déjà");
             }
-            if (existingPhones.has(member.phone)) {
+            if (e164Phone && existingPhones.has(e164Phone)) {
                 errors.push("Téléphone existe déjà");
             }
 
             if (errors.length > 0) {
                 totalFailedRows.push({ row: rowNum, errors });
+            } else if (!e164Phone) {
+                totalFailedRows.push({
+                    row: rowNum,
+                    errors: ["Numéro invalide (format Togo attendu)"],
+                });
             } else {
-                // Generate a secure unique dummy hash per user
                 const uniquePasswordHash = await hashPassword(crypto.randomUUID());
-                
-                // Omit address since it's not in the DB schema
                 const { address, ...memberDbData } = member;
 
                 toInsert.push({
                     ...memberDbData,
+                    phone: e164Phone,
                     password_hash: uniquePasswordHash,
                     status: "ACTIVE",
-                    account_status: "PENDING_ACTIVATION"
+                    account_status: "PENDING_ACTIVATION",
                 });
             }
         }
 
         if (toInsert.length > 0) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const { error: insertError } = await (supabase.from("Members") as any).insert(toInsert);
+            const { data: insertedRows, error: insertError } = await (supabase.from("Members") as any)
+                .insert(toInsert)
+                .select("id, phone");
 
             if (insertError) {
                  return { error: `Échec d'insertion pour un lot: ${insertError.message}` };
             }
-            
+
             totalSuccessCount += toInsert.length;
+            if (insertedRows) {
+                insertedForOtp.push(
+                    ...(insertedRows as { id: string; phone: string }[])
+                );
+            }
+        }
+    }
+
+    if (insertedForOtp.length > 0) {
+        const otpResults = await Promise.allSettled(
+            insertedForOtp.map((row) =>
+                sendActivationOtp(row.phone, row.id, `s2a-activation-${row.id}`)
+            )
+        );
+        otpFailureCount = otpResults.filter(
+            (r) => r.status === "rejected" || (r.status === "fulfilled" && !r.value.ok)
+        ).length;
+        if (otpFailureCount > 0) {
+            console.warn(
+                `[bulkImportMembers] OTP send failed for ${otpFailureCount}/${insertedForOtp.length} members`
+            );
         }
     }
 
@@ -383,7 +448,8 @@ export async function bulkImportMembers(
         data: {
             successCount: totalSuccessCount,
             failureCount: totalFailedRows.length,
-            failedRows: totalFailedRows
-        }
+            failedRows: totalFailedRows,
+            ...(otpFailureCount > 0 ? { otpFailureCount } : {}),
+        },
     };
 }

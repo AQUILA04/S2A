@@ -22,7 +22,6 @@ export const createMemberSchema = z.object({
         .number({ invalid_type_error: "Monthly fee must be a number" })
         .min(0, "Monthly fee must be ≥ 0"),
     role: z.enum(["MEMBER", "PRESIDENT", "SG", "SG_ADJOINT", "TREASURER", "TRESORIER_ADJOINT"]),
-    password: z.string().min(8, "Initial password must be at least 8 characters"),
 });
 
 export const updateMemberSchema = z.object({
