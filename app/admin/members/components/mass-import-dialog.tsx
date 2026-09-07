@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { Upload, FileSpreadsheet, AlertTriangle, Loader2, CheckCircle2 } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -20,10 +21,12 @@ import { parseFullName } from "@/lib/utils/name-parser";
 import { bulkImportMembers } from "../actions";
 
 export function MassImportDialog() {
+    const router = useRouter();
     const [open, setOpen] = useState(false);
     const [file, setFile] = useState<File | null>(null);
     const [isParsing, setIsParsing] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [didImportSucceed, setDidImportSucceed] = useState(false);
     
     // Preview state
     const [validRows, setValidRows] = useState<ValidatedMemberJson[]>([]);
@@ -44,6 +47,20 @@ export function MassImportDialog() {
         if (fileInputRef.current) {
             fileInputRef.current.value = "";
         }
+    };
+
+    const handleOpenChange = (nextOpen: boolean) => {
+        if (!nextOpen) {
+            const shouldRefresh = didImportSucceed;
+            resetState();
+            setDidImportSucceed(false);
+            setOpen(false);
+            if (shouldRefresh) {
+                router.refresh();
+            }
+            return;
+        }
+        setOpen(true);
     };
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -167,13 +184,16 @@ export function MassImportDialog() {
                     type: totalSuccess > 0 ? "success" : "error",
                     text,
                 });
+                if (totalSuccess > 0) {
+                    setDidImportSucceed(true);
+                }
                 toast({
                     title: "Importation terminée",
                     description: text,
                 });
                 
                 if (totalFailures === 0 && totalSuccess > 0) {
-                    // Keep dialog open briefly so the success message is visible
+                    // Keep dialog open so the success message is visible; list refreshes on close
                     setValidRows([]);
                 } else if (allFailedRows.length > 0) {
                     setErrorRows((prev) => [...prev, ...allFailedRows]);
@@ -197,10 +217,7 @@ export function MassImportDialog() {
     };
 
     return (
-        <Dialog open={open} onOpenChange={(val) => {
-            if (!val) resetState();
-            setOpen(val);
-        }}>
+        <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogTrigger asChild>
                 <Button variant="outline" className="w-full bg-white text-[#002366] border-[#002366] rounded-lg py-3 flex items-center justify-center font-semibold text-sm shadow-sm hover:bg-neutral-50 transition-colors mt-3">
                     <FileSpreadsheet className="w-5 h-5 mr-2" />
@@ -301,7 +318,7 @@ export function MassImportDialog() {
                 </div>
 
                 <div className="flex justify-end gap-3 border-t pt-4 mt-2">
-                    <Button variant="outline" onClick={() => setOpen(false)} disabled={isSubmitting}>
+                    <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={isSubmitting}>
                         Annuler
                     </Button>
                     <Button 

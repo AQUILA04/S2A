@@ -15,6 +15,7 @@ import {
     type ValidatedMemberJson,
 } from "./types";
 import { logAudit } from "@/lib/audit/logger";
+import { revalidatePath } from "next/cache";
 import {
     normalizePhoneToE164,
     sendActivationOtp,
@@ -455,6 +456,8 @@ export async function bulkImportMembers(
                 failure_count: totalFailedRows.length,
             },
         });
+
+        revalidatePath("/admin/members");
         
         console.log(`[log] MASS_IMPORT_MEMBERS: ${totalSuccessCount} succeeded, ${totalFailedRows.length} failed. Implemented by ${actor.id}`);
     }
