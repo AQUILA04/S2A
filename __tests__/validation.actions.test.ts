@@ -16,11 +16,20 @@
 // Mock: lib/supabase/client (chainable builder)
 // ============================================================
 
-function mockResponse(data: any, error: any) {
+function mockResponse(data: unknown, error: unknown) {
     const p = Promise.resolve({ data, error });
-    (p as any).returns = jest.fn(() => p);
+    (p as Promise<{ data: unknown; error: unknown }> & { returns: jest.Mock }).returns = jest.fn(
+        () => p
+    );
     return p;
 }
+
+const PENDING_CONTRIBUTION = {
+    id: "contrib-pending-001",
+    member_id: "member-uuid-001",
+    amount: 25000,
+    status: "PENDING",
+};
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function buildChain(overrides: Record<string, any> = {}): any {
@@ -32,9 +41,23 @@ function buildChain(overrides: Record<string, any> = {}): any {
         in: jest.fn(() => mockResponse([], null)),
         order: jest.fn(() => mockResponse([], null)),
         single: jest.fn(() => mockResponse(null, null)),
+        maybeSingle: jest.fn(() => mockResponse(PENDING_CONTRIBUTION, null)),
         ...overrides,
     };
     return chain;
+}
+
+/** Chain for successful validatePayment (load + update). */
+function buildValidateSuccessChain(
+    updateResult: { error: unknown } = { error: null }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+): any {
+    const innerEq = jest.fn(() => Promise.resolve(updateResult));
+    const outerEq = jest.fn(() => ({ eq: innerEq }));
+    return buildChain({
+        maybeSingle: jest.fn(() => mockResponse(PENDING_CONTRIBUTION, null)),
+        update: jest.fn(() => ({ eq: outerEq })),
+    });
 }
 
 // eslint-disable-next-line prefer-const
@@ -43,6 +66,13 @@ let mockFromReturn = buildChain();
 // Keep track of which table is accessed so we can differentiate
 const mockFrom = jest.fn((table: string) => {
     mockLastTable = table;
+    if (table === "Members") {
+        return buildChain({
+            maybeSingle: jest.fn(() =>
+                mockResponse({ phone: "+22890123456", first_name: "Jean" }, null)
+            ),
+        });
+    }
     return mockFromReturn;
 });
 let mockLastTable = "";
@@ -51,6 +81,10 @@ jest.mock("@/lib/supabase/client", () => ({
     createServerSupabaseClient: jest.fn(() => ({
         from: mockFrom,
     })),
+}));
+
+jest.mock("@/lib/services/notification-hub.client", () => ({
+    sendSmsNotification: jest.fn(() => Promise.resolve({ ok: true })),
 }));
 
 // ============================================================
@@ -93,7 +127,7 @@ import { validatePayment, getPendingContributions } from "@/app/admin/validation
 beforeEach(() => {
     jest.clearAllMocks();
     mockSession = { user: { id: "treasurer-uuid-001", role: "TREASURER" } };
-    mockFromReturn = buildChain();
+    mockFromReturn = buildValidateSuccessChain();
     mockLastTable = "";
 });
 
@@ -125,33 +159,21 @@ describe("validatePayment Server Action", () => {
 
     it("allows TREASURER role to validate", async () => {
         mockSession = { user: { id: "treasurer-uuid-001", role: "TREASURER" } };
-        const innerEq = jest.fn(() => Promise.resolve({ error: null }));
-        const outerEq = jest.fn(() => ({ eq: innerEq }));
-        mockFromReturn = buildChain({
-            update: jest.fn(() => ({ eq: outerEq })),
-        });
+        mockFromReturn = buildValidateSuccessChain();
         const result = await validatePayment(CONTRIBUTION_ID, "APPROVE");
         expect(result.error).toBeUndefined();
     });
 
     it("allows TRESORIER_ADJOINT role to validate", async () => {
         mockSession = { user: { id: "adj-uuid-001", role: "TRESORIER_ADJOINT" } };
-        const innerEq = jest.fn(() => Promise.resolve({ error: null }));
-        const outerEq = jest.fn(() => ({ eq: innerEq }));
-        mockFromReturn = buildChain({
-            update: jest.fn(() => ({ eq: outerEq })),
-        });
+        mockFromReturn = buildValidateSuccessChain();
         const result = await validatePayment(CONTRIBUTION_ID, "APPROVE");
         expect(result.error).toBeUndefined();
     });
 
     it("allows PRESIDENT role to validate", async () => {
         mockSession = { user: { id: "president-uuid-001", role: "PRESIDENT" } };
-        const innerEq = jest.fn(() => Promise.resolve({ error: null }));
-        const outerEq = jest.fn(() => ({ eq: innerEq }));
-        mockFromReturn = buildChain({
-            update: jest.fn(() => ({ eq: outerEq })),
-        });
+        mockFromReturn = buildValidateSuccessChain();
         const result = await validatePayment(CONTRIBUTION_ID, "APPROVE");
         expect(result.error).toBeUndefined();
     });
@@ -171,12 +193,7 @@ describe("validatePayment Server Action", () => {
     });
 
     it("approves a payment: calls DB update with VALIDATED status", async () => {
-        const mockEq = jest.fn().mockReturnThis();
-        mockFromReturn = buildChain({
-            update: jest.fn(() => ({ eq: mockEq })),
-        });
-        // Final eq chain must resolve to { error: null }
-        mockEq.mockReturnValue({ eq: jest.fn(() => mockResponse(null, null)) });
+        mockFromReturn = buildValidateSuccessChain();
 
         const result = await validatePayment(CONTRIBUTION_ID, "APPROVE");
 
@@ -186,11 +203,7 @@ describe("validatePayment Server Action", () => {
     });
 
     it("approves a payment: calls logAudit with correct metadata", async () => {
-        const mockEq = jest.fn().mockReturnThis();
-        mockFromReturn = buildChain({
-            update: jest.fn(() => ({ eq: mockEq })),
-        });
-        mockEq.mockReturnValue({ eq: jest.fn(() => Promise.resolve({ error: null })) });
+        mockFromReturn = buildValidateSuccessChain();
 
         await validatePayment(CONTRIBUTION_ID, "APPROVE");
 
@@ -207,11 +220,7 @@ describe("validatePayment Server Action", () => {
     });
 
     it("approves a payment: calls revalidatePath for all required paths", async () => {
-        const mockEq = jest.fn().mockReturnThis();
-        mockFromReturn = buildChain({
-            update: jest.fn(() => ({ eq: mockEq })),
-        });
-        mockEq.mockReturnValue({ eq: jest.fn(() => Promise.resolve({ error: null })) });
+        mockFromReturn = buildValidateSuccessChain();
 
         await validatePayment(CONTRIBUTION_ID, "APPROVE");
 
@@ -221,11 +230,7 @@ describe("validatePayment Server Action", () => {
     });
 
     it("rejects a payment with reason: returns REJECTED status and stores reason in audit", async () => {
-        const mockEq = jest.fn().mockReturnThis();
-        mockFromReturn = buildChain({
-            update: jest.fn(() => ({ eq: mockEq })),
-        });
-        mockEq.mockReturnValue({ eq: jest.fn(() => Promise.resolve({ error: null })) });
+        mockFromReturn = buildValidateSuccessChain();
 
         const REASON = "Référence introuvable dans les relevés bancaires";
         const result = await validatePayment(CONTRIBUTION_ID, "REJECT", REASON);
@@ -247,12 +252,8 @@ describe("validatePayment Server Action", () => {
     });
 
     it("returns error when DB update fails", async () => {
-        const mockEq = jest.fn().mockReturnThis();
-        mockFromReturn = buildChain({
-            update: jest.fn(() => ({ eq: mockEq })),
-        });
-        mockEq.mockReturnValue({
-            eq: jest.fn(() => Promise.resolve({ error: { message: "DB failure" } })),
+        mockFromReturn = buildValidateSuccessChain({
+            error: { message: "DB failure" },
         });
 
         const result = await validatePayment(CONTRIBUTION_ID, "APPROVE");
