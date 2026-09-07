@@ -61,7 +61,8 @@ export async function getMemberBalance(memberId: string): Promise<MemberBalanceC
   const [blackoutResult, contributionsResult, investmentsResult] = await Promise.all([
     supabase.from("BlackoutMonths").select("month, year").eq("is_active", true),
     supabase.from("Contributions").select("amount, month, year").eq("member_id", memberId).eq("status", "VALIDATED"),
-    supabase.from("ProjectInvestments").select("amount").eq("member_id", memberId).eq("status", "VALIDATED"),
+    // ProjectInvestments has no status column — every row is an applied allocation
+    supabase.from("ProjectInvestments").select("amount").eq("member_id", memberId),
   ]);
 
   if (blackoutResult.error) throw new Error(`Failed to fetch BlackoutMonths: ${blackoutResult.error.message}`);
