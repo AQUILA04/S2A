@@ -58,17 +58,22 @@ try {
   for (const a of ACCOUNTS) {
     const existing = await sql`SELECT id FROM "Members" WHERE email = ${a.email} LIMIT 1`;
     if (existing.length) {
-      console.log(`skip ${a.email}`);
+      await sql`
+        UPDATE "Members"
+        SET must_change_password = true
+        WHERE email = ${a.email} AND must_change_password = false
+      `;
+      console.log(`skip ${a.email} (must_change_password ensured)`);
       continue;
     }
     const hash = await bcrypt.hash(a.password, 12);
     const rows = await sql`
       INSERT INTO "Members" (
         first_name, last_name, email, phone, join_date,
-        monthly_fee, status, account_status, role, password_hash
+        monthly_fee, status, account_status, role, password_hash, must_change_password
       ) VALUES (
         ${a.first_name}, ${a.last_name}, ${a.email}, ${a.phone}, ${"2016-01-01"},
-        ${0}, ${"ACTIVE"}, ${"ACTIVE"}, ${a.role}, ${hash}
+        ${0}, ${"ACTIVE"}, ${"ACTIVE"}, ${a.role}, ${hash}, ${true}
       ) RETURNING id, email, role
     `;
     const m = rows[0];

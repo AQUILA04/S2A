@@ -14,6 +14,7 @@ services:
       - ./db/migrations/V001__initial_schema.sql:/docker-entrypoint-initdb.d/01_v001.sql:ro
       - ./db/migrations/V002__rbac_and_account_status.sql:/docker-entrypoint-initdb.d/02_v002.sql:ro
       - ./db/migrations/V003__payment_channels.sql:/docker-entrypoint-initdb.d/03_v003.sql:ro
+      - ./db/migrations/V004__must_change_password.sql:/docker-entrypoint-initdb.d/04_v004.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U s2a -d s2a"]
       interval: 5s

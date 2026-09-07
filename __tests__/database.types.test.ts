@@ -107,6 +107,7 @@ describe("Database Types - Member interface structure", () => {
             account_status: "ACTIVE",
             role: "SG",
             password_hash: "$2b$12$hashedpassword",
+            must_change_password: true,
             created_at_app: "2026-01-01T00:00:00.000Z",
         };
 

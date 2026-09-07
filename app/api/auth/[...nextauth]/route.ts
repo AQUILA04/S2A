@@ -26,6 +26,15 @@ function requireEnv(name: string): string {
 const NEXTAUTH_SECRET = requireEnv("NEXTAUTH_SECRET");
 requireEnv("NEXTAUTH_URL"); // [M2] Missing NEXTAUTH_URL silently breaks CSRF callbacks
 
+type AuthUserShape = {
+    id: string;
+    email: string;
+    name: string;
+    role: MemberRole;
+    status: MemberStatus;
+    mustChangePassword: boolean;
+};
+
 // Exported for testing without NextAuth mutating it
 export async function authorizeCredentials(credentials: Record<"email" | "password", string> | undefined) {
     // 1. Validate input format (schema imported from lib/auth/helpers)
@@ -36,18 +45,26 @@ export async function authorizeCredentials(credentials: Record<"email" | "passwo
 
     const { email, password } = parsed.data;
 
-    // 2. Fetch member from Supabase (server-side only)
+    // 2. Fetch member from DB (server-side only)
     const supabase = createServerSupabaseClient();
     const { data: rawMember, error } = await supabase
         .from("Members")
-        .select("id, email, first_name, last_name, role, status, account_status, password_hash")
+        .select("id, email, first_name, last_name, role, status, account_status, password_hash, must_change_password")
         .eq("email", email)
         .single();
 
     // Cast to the expected shape — the select fields exactly match this Pick<>
     const member = rawMember as Pick<
         Member,
-        "id" | "email" | "first_name" | "last_name" | "role" | "status" | "account_status" | "password_hash"
+        | "id"
+        | "email"
+        | "first_name"
+        | "last_name"
+        | "role"
+        | "status"
+        | "account_status"
+        | "password_hash"
+        | "must_change_password"
     > | null;
 
     if (error || !member) {
@@ -73,13 +90,15 @@ export async function authorizeCredentials(credentials: Record<"email" | "passwo
     // 5. Return user object (encoded into the JWT token).
     // 'status' (association/cotisation status) is included so the frontend can
     // identify INACTIVE members and disable new investment actions accordingly.
-    return {
+    const user: AuthUserShape = {
         id: member.id,
         email: member.email,
         name: `${member.first_name} ${member.last_name}`,
         role: member.role,
         status: member.status,
+        mustChangePassword: Boolean(member.must_change_password),
     };
+    return user;
 }
 
 // ============================================================
@@ -113,13 +132,36 @@ export const authOptions: AuthOptions = {
     callbacks: {
         /**
          * JWT callback: encodes user role and association status into the token on first sign-in.
+         * On session.update(), re-reads must_change_password from the DB.
          */
-        async jwt({ token, user }) {
+        async jwt({ token, user, trigger }) {
             if (user) {
-                token.id = user.id;
-                token.role = (user as { id: string; role: MemberRole; status: MemberStatus }).role;
-                token.status = (user as { id: string; role: MemberRole; status: MemberStatus }).status;
+                const u = user as AuthUserShape;
+                token.id = u.id;
+                token.role = u.role;
+                token.status = u.status;
+                token.mustChangePassword = u.mustChangePassword;
             }
+
+            if (trigger === "update" && token.id) {
+                const supabase = createServerSupabaseClient();
+                const { data } = await supabase
+                    .from("Members")
+                    .select("must_change_password, role, status")
+                    .eq("id", token.id as string)
+                    .single();
+                const row = data as {
+                    must_change_password?: boolean;
+                    role?: MemberRole;
+                    status?: MemberStatus;
+                } | null;
+                if (row) {
+                    token.mustChangePassword = Boolean(row.must_change_password);
+                    if (row.role) token.role = row.role;
+                    if (row.status) token.status = row.status;
+                }
+            }
+
             return token;
         },
 
@@ -135,6 +177,7 @@ export const authOptions: AuthOptions = {
                 session.user.id = token.id as string;
                 session.user.role = token.role as MemberRole;
                 session.user.status = token.status as MemberStatus;
+                session.user.mustChangePassword = Boolean(token.mustChangePassword);
             }
             return session;
         },

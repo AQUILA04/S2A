@@ -6,6 +6,7 @@
  *   - INACTIVE accounts are allowed through (AC4)
  *   - Role hierarchy (hasRequiredRole) — PRESIDENT inherits all (AC5)
  *   - Middleware redirection logic (AC1, AC2)
+ *   - must_change_password forces /auth/setup-password
  */
 
 import {
@@ -85,6 +86,7 @@ describe("NextAuth - authorize callback (AC3 & AC4)", () => {
                 email: "test@test.com",
                 password_hash: "hash",
                 account_status: "PENDING_ACTIVATION",
+                must_change_password: false,
             },
             error: null,
         });
@@ -107,40 +109,57 @@ describe("NextAuth - authorize callback (AC3 & AC4)", () => {
                 status: "INACTIVE",
                 account_status: "ACTIVE",
                 password_hash: hash,
+                must_change_password: true,
             },
             error: null,
         });
 
         const user = await authorize({ email: "test2@test.com", password: "password" });
         expect(user).toBeDefined();
-        // Since we did not provide req, we just ensure it returns the user object and not null
         expect(user?.status).toBe("INACTIVE");
+        expect(user?.mustChangePassword).toBe(true);
     });
 });
 
 describe("NextAuth - jwt and session callbacks", () => {
-    it("should include role and status in the JWT token payload", async () => {
-        const token: any = {};
-        const user = { id: "123", role: "SG", status: "ACTIVE" };
+    it("should include role, status and mustChangePassword in the JWT token payload", async () => {
+        const token: Record<string, unknown> = {};
+        const user = {
+            id: "123",
+            role: "SG",
+            status: "ACTIVE",
+            mustChangePassword: true,
+        };
 
-        const jwtCallback = authOptions.callbacks!.jwt as any;
+        const jwtCallback = authOptions.callbacks!.jwt as unknown as (
+            args: unknown
+        ) => Promise<Record<string, unknown>>;
         const result = await jwtCallback({ token, user });
 
         expect(result.id).toBe("123");
         expect(result.role).toBe("SG");
         expect(result.status).toBe("ACTIVE");
+        expect(result.mustChangePassword).toBe(true);
     });
 
-    it("should expose role and status in session from JWT token", async () => {
-        const token = { id: "123", role: "SG", status: "INACTIVE" };
-        const session: any = { user: {} };
+    it("should expose mustChangePassword in session from JWT token", async () => {
+        const token = {
+            id: "123",
+            role: "SG",
+            status: "INACTIVE",
+            mustChangePassword: true,
+        };
+        const session: { user: Record<string, unknown> } = { user: {} };
 
-        const sessionCallback = authOptions.callbacks!.session as any;
+        const sessionCallback = authOptions.callbacks!.session as unknown as (
+            args: unknown
+        ) => Promise<{ user: Record<string, unknown> }>;
         const result = await sessionCallback({ session, token });
 
         expect(result.user.id).toBe("123");
         expect(result.user.role).toBe("SG");
         expect(result.user.status).toBe("INACTIVE");
+        expect(result.user.mustChangePassword).toBe(true);
     });
 });
 
@@ -149,9 +168,24 @@ describe("Middleware - Route protection (AC1, AC2)", () => {
         jest.clearAllMocks();
     });
 
-    it("users accessing the root (/) should be redirected to /dashboard", async () => {
+    it("unauthenticated users accessing the root (/) should be redirected to /login", async () => {
+        (jwt.getToken as jest.Mock).mockResolvedValue(null);
+
         const req = new NextRequest("http://localhost:3000/");
-        const res = await middleware(req as any, null as any) as any;
+        const res = (await middleware(req as never, null as never)) as Response;
+
+        expect(res.status).toBe(307);
+        expect(res.headers.get("location")).toContain("/login");
+    });
+
+    it("authenticated users accessing the root (/) should be redirected to /dashboard", async () => {
+        (jwt.getToken as jest.Mock).mockResolvedValue({
+            role: "MEMBER",
+            mustChangePassword: false,
+        });
+
+        const req = new NextRequest("http://localhost:3000/");
+        const res = (await middleware(req as never, null as never)) as Response;
 
         expect(res.status).toBe(307);
         expect(res.headers.get("location")).toContain("/dashboard");
@@ -161,27 +195,33 @@ describe("Middleware - Route protection (AC1, AC2)", () => {
         (jwt.getToken as jest.Mock).mockResolvedValue(null);
 
         const req = new NextRequest("http://localhost:3000/admin/settings");
-        const res = await middleware(req as any, null as any) as any;
+        const res = (await middleware(req as never, null as never)) as Response;
 
         expect(res.status).toBe(307);
         expect(res.headers.get("location")).toContain("/login");
     });
 
     it("MEMBER accessing /admin should be redirected to /dashboard (AC1)", async () => {
-        (jwt.getToken as jest.Mock).mockResolvedValue({ role: "MEMBER" });
+        (jwt.getToken as jest.Mock).mockResolvedValue({
+            role: "MEMBER",
+            mustChangePassword: false,
+        });
 
         const req = new NextRequest("http://localhost:3000/admin/members");
-        const res = await middleware(req as any, null as any) as any;
+        const res = (await middleware(req as never, null as never)) as Response;
 
         expect(res.status).toBe(307);
         expect(res.headers.get("location")).toBe("http://localhost:3000/dashboard");
     });
 
     it("SG accessing /admin should be allowed through (AC2)", async () => {
-        (jwt.getToken as jest.Mock).mockResolvedValue({ role: "SG" });
+        (jwt.getToken as jest.Mock).mockResolvedValue({
+            role: "SG",
+            mustChangePassword: false,
+        });
 
         const req = new NextRequest("http://localhost:3000/admin/members");
-        const res = await middleware(req as any, null as any) as any;
+        const res = (await middleware(req as never, null as never)) as Response;
 
         // Allowed through uses NextResponse.next() which doesn't redirect
         expect(res.headers.get("location")).toBeNull();
@@ -191,17 +231,45 @@ describe("Middleware - Route protection (AC1, AC2)", () => {
         (jwt.getToken as jest.Mock).mockResolvedValue(null);
 
         const req = new NextRequest("http://localhost:3000/dashboard");
-        const res = await middleware(req as any, null as any) as any;
+        const res = (await middleware(req as never, null as never)) as Response;
 
         expect(res.status).toBe(307);
         expect(res.headers.get("location")).toContain("/login");
     });
 
     it("authenticated user accessing /dashboard should be allowed through", async () => {
-        (jwt.getToken as jest.Mock).mockResolvedValue({ role: "MEMBER" });
+        (jwt.getToken as jest.Mock).mockResolvedValue({
+            role: "MEMBER",
+            mustChangePassword: false,
+        });
 
         const req = new NextRequest("http://localhost:3000/dashboard");
-        const res = await middleware(req as any, null as any) as any;
+        const res = (await middleware(req as never, null as never)) as Response;
+
+        expect(res.headers.get("location")).toBeNull();
+    });
+
+    it("mustChangePassword user is forced to /auth/setup-password from /dashboard", async () => {
+        (jwt.getToken as jest.Mock).mockResolvedValue({
+            role: "PRESIDENT",
+            mustChangePassword: true,
+        });
+
+        const req = new NextRequest("http://localhost:3000/dashboard");
+        const res = (await middleware(req as never, null as never)) as Response;
+
+        expect(res.status).toBe(307);
+        expect(res.headers.get("location")).toContain("/auth/setup-password");
+    });
+
+    it("mustChangePassword user may access /auth/setup-password", async () => {
+        (jwt.getToken as jest.Mock).mockResolvedValue({
+            role: "PRESIDENT",
+            mustChangePassword: true,
+        });
+
+        const req = new NextRequest("http://localhost:3000/auth/setup-password");
+        const res = (await middleware(req as never, null as never)) as Response;
 
         expect(res.headers.get("location")).toBeNull();
     });

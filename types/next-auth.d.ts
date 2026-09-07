@@ -8,6 +8,8 @@ declare module "next-auth" {
         /** Association/cotisation status — passed through to session so the frontend
          *  can disable investment actions for INACTIVE members (AC4, Story 1.3). */
         status: MemberStatus;
+        /** When true, middleware forces /auth/setup-password. */
+        mustChangePassword: boolean;
     }
 
     interface Session {
@@ -20,6 +22,7 @@ declare module "next-auth" {
             /** Association/cotisation status — ACTIVE (paying) or INACTIVE (≥24 months arrears).
              *  Use this to gate investment actions on the frontend. */
             status: MemberStatus;
+            mustChangePassword: boolean;
         };
     }
 }
@@ -30,5 +33,6 @@ declare module "next-auth/jwt" {
         role: MemberRole;
         /** Association/cotisation status carried in the signed JWT. */
         status: MemberStatus;
+        mustChangePassword: boolean;
     }
 }

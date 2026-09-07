@@ -1,8 +1,15 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { z } from "zod";
 import { createServerSupabaseClient } from "@/lib/supabase/client";
 import { hashPassword } from "@/lib/auth/helpers";
+import {
+    ACTIVATION_COOKIE,
+    activationCookieOptions,
+    createActivationTicket,
+    verifyActivationTicket,
+} from "@/lib/auth/activation-ticket";
 import {
     normalizePhoneToE164,
     sendActivationOtp,
@@ -10,10 +17,13 @@ import {
 } from "@/lib/services/activation-otp.service";
 import type { ActionResult } from "@/app/admin/members/types";
 
-const activateAccountSchema = z
+const otpStepSchema = z.object({
+    phone: z.string().min(1, "Le numéro de téléphone est requis"),
+    code: z.string().min(4, "Le code de vérification est requis"),
+});
+
+const passwordStepSchema = z
     .object({
-        phone: z.string().min(1, "Le numéro de téléphone est requis"),
-        code: z.string().min(4, "Le code de vérification est requis"),
         password: z.string().min(8, "Le mot de passe doit contenir au moins 8 caractères"),
         confirmPassword: z.string().min(1, "Confirmez votre mot de passe"),
     })
@@ -25,6 +35,16 @@ const activateAccountSchema = z
 const phoneSchema = z.object({
     phone: z.string().min(1, "Le numéro de téléphone est requis"),
 });
+
+function fieldErrorsFromZod(error: z.ZodError): Record<string, string[]> {
+    const fieldErrors: Record<string, string[]> = {};
+    error.errors.forEach((err) => {
+        const field = err.path.join(".");
+        if (!fieldErrors[field]) fieldErrors[field] = [];
+        fieldErrors[field].push(err.message);
+    });
+    return fieldErrors;
+}
 
 async function findPendingMemberByPhone(e164: string) {
     const supabase = createServerSupabaseClient();
@@ -56,13 +76,7 @@ export async function resendActivationOtp(
 ): Promise<ActionResult<{ sent: boolean }>> {
     const parsed = phoneSchema.safeParse(rawData);
     if (!parsed.success) {
-        const fieldErrors: Record<string, string[]> = {};
-        parsed.error.errors.forEach((err) => {
-            const field = err.path.join(".");
-            if (!fieldErrors[field]) fieldErrors[field] = [];
-            fieldErrors[field].push(err.message);
-        });
-        return { error: "Validation failed", fieldErrors };
+        return { error: "Validation failed", fieldErrors: fieldErrorsFromZod(parsed.error) };
     }
 
     const e164 = normalizePhoneToE164(parsed.data.phone);
@@ -86,18 +100,13 @@ export async function resendActivationOtp(
     return { data: { sent: true } };
 }
 
-export async function activateAccount(
+/** Step 1: verify OTP and set signed activation cookie (does not activate the account). */
+export async function verifyActivationOtpOnly(
     rawData: unknown
-): Promise<ActionResult<{ activated: boolean }>> {
-    const parsed = activateAccountSchema.safeParse(rawData);
+): Promise<ActionResult<{ verified: boolean }>> {
+    const parsed = otpStepSchema.safeParse(rawData);
     if (!parsed.success) {
-        const fieldErrors: Record<string, string[]> = {};
-        parsed.error.errors.forEach((err) => {
-            const field = err.path.join(".");
-            if (!fieldErrors[field]) fieldErrors[field] = [];
-            fieldErrors[field].push(err.message);
-        });
-        return { error: "Validation failed", fieldErrors };
+        return { error: "Validation failed", fieldErrors: fieldErrorsFromZod(parsed.error) };
     }
 
     const e164 = normalizePhoneToE164(parsed.data.phone);
@@ -121,6 +130,30 @@ export async function activateAccount(
         };
     }
 
+    const ticket = createActivationTicket(member.id);
+    const cookieStore = await cookies();
+    cookieStore.set(ACTIVATION_COOKIE, ticket, activationCookieOptions);
+
+    return { data: { verified: true } };
+}
+
+/** Step 2: set password using valid activation ticket cookie. */
+export async function completeActivationWithPassword(
+    rawData: unknown
+): Promise<ActionResult<{ activated: boolean }>> {
+    const parsed = passwordStepSchema.safeParse(rawData);
+    if (!parsed.success) {
+        return { error: "Validation failed", fieldErrors: fieldErrorsFromZod(parsed.error) };
+    }
+
+    const cookieStore = await cookies();
+    const memberId = verifyActivationTicket(cookieStore.get(ACTIVATION_COOKIE)?.value);
+    if (!memberId) {
+        return {
+            error: "Session d'activation expirée. Veuillez vérifier à nouveau votre code SMS.",
+        };
+    }
+
     const password_hash = await hashPassword(parsed.data.password);
     const supabase = createServerSupabaseClient();
 
@@ -129,14 +162,19 @@ export async function activateAccount(
         .update({
             password_hash,
             account_status: "ACTIVE",
-            phone: e164,
+            must_change_password: false,
         })
-        .eq("id", member.id)
+        .eq("id", memberId)
         .eq("account_status", "PENDING_ACTIVATION");
 
     if (updateError) {
         return { error: `Activation échouée: ${updateError.message}` };
     }
+
+    cookieStore.set(ACTIVATION_COOKIE, "", {
+        ...activationCookieOptions,
+        maxAge: 0,
+    });
 
     return { data: { activated: true } };
 }

@@ -114,7 +114,12 @@ async function seedAccount(sql: postgres.Sql, account: SeedAccount): Promise<voi
     `;
 
     if (existing.length > 0) {
-        console.log(`   ✅ Already exists (id: ${existing[0].id}) — skipped.`);
+        await sql`
+            UPDATE "Members"
+            SET must_change_password = true
+            WHERE email = ${account.email} AND must_change_password = false
+        `;
+        console.log(`   ✅ Already exists (id: ${existing[0].id}) — must_change_password ensured.`);
         return;
     }
 
@@ -125,7 +130,7 @@ async function seedAccount(sql: postgres.Sql, account: SeedAccount): Promise<voi
     const inserted = await sql`
         INSERT INTO "Members" (
             first_name, last_name, email, phone, join_date,
-            monthly_fee, status, account_status, role, password_hash
+            monthly_fee, status, account_status, role, password_hash, must_change_password
         ) VALUES (
             ${account.first_name},
             ${account.last_name},
@@ -136,7 +141,8 @@ async function seedAccount(sql: postgres.Sql, account: SeedAccount): Promise<voi
             ${account.status},
             ${account.account_status},
             ${account.role},
-            ${passwordHash}
+            ${passwordHash},
+            ${true}
         )
         RETURNING id, email, role
     `;

@@ -11,29 +11,47 @@ const ADMIN_READ_ROLES: MemberRole[] = [
     "PRESIDENT",
 ];
 
+const SETUP_PASSWORD_PATH = "/auth/setup-password";
+
 export default withAuth(
     function middleware(request) {
         const { pathname } = request.nextUrl;
         const token = request.nextauth.token;
+        const mustChange = Boolean(token?.mustChangePassword);
 
-        // / root route: redirect to /dashboard
+        // Force password change before any other authenticated page
+        if (token && mustChange && pathname !== SETUP_PASSWORD_PATH) {
+            return NextResponse.redirect(new URL(SETUP_PASSWORD_PATH, request.url));
+        }
+
+        if (token && !mustChange && pathname === SETUP_PASSWORD_PATH) {
+            return NextResponse.redirect(new URL("/dashboard", request.url));
+        }
+
+        // / root route: redirect to /dashboard (or setup-password via rule above)
         if (pathname === "/") {
             return NextResponse.redirect(new URL("/dashboard", request.url));
         }
 
-        // /login route: redirect logged-in users to /dashboard
+        // /login route: redirect logged-in users
         if (pathname === "/login") {
             if (token) {
-                return NextResponse.redirect(new URL("/dashboard", request.url));
+                const dest = mustChange ? SETUP_PASSWORD_PATH : "/dashboard";
+                return NextResponse.redirect(new URL(dest, request.url));
             }
             return NextResponse.next();
         }
 
-        // /activate route: public account setup (OTP + password)
+        // /activate route: public account setup (OTP then password)
         if (pathname === "/activate") {
             if (token) {
-                return NextResponse.redirect(new URL("/dashboard", request.url));
+                const dest = mustChange ? SETUP_PASSWORD_PATH : "/dashboard";
+                return NextResponse.redirect(new URL(dest, request.url));
             }
+            return NextResponse.next();
+        }
+
+        if (pathname === SETUP_PASSWORD_PATH) {
             return NextResponse.next();
         }
 
@@ -53,11 +71,13 @@ export default withAuth(
     },
     {
         callbacks: {
-            // This callback determines if the middleware function is even called
-            // Returning false will redirect to the sign-in page
-            authorized: () => {
-                // Let other routes (like / or /login) pass through to the middleware function
-                return true;
+            authorized: ({ token, req }) => {
+                const { pathname } = req.nextUrl;
+                if (pathname === "/login" || pathname === "/activate") {
+                    return true;
+                }
+                // All other matched routes require a session
+                return !!token;
             },
         },
         pages: {
@@ -68,6 +88,12 @@ export default withAuth(
 );
 
 export const config = {
-    // Match public auth routes. /admin is protected server-side in admin layout/actions.
-    matcher: ["/", "/login", "/activate"],
+    matcher: [
+        "/",
+        "/login",
+        "/activate",
+        "/auth/setup-password",
+        "/dashboard/:path*",
+        "/admin/:path*",
+    ],
 };

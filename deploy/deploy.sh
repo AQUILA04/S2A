@@ -34,6 +34,15 @@ echo "==> Waiting for db + app..."
 sleep 8
 docker compose -f "${COMPOSE_FILE}" --project-name "${COMPOSE_PROJECT}" --env-file .env.prod ps
 
+# Apply additive migrations on existing volumes (initdb.d only runs on first boot)
+if [[ -f db-migrations/V004__must_change_password.sql ]]; then
+  echo "==> Applying V004 must_change_password (idempotent)..."
+  docker exec -i s2a-db \
+    psql -U "${DB_USER}" -d "${DB_NAME}" \
+    < db-migrations/V004__must_change_password.sql \
+    || echo "WARN: V004 migrate failed (non-fatal)"
+fi
+
 if [[ -f seed.mjs ]]; then
   echo "==> Seeding admin accounts (idempotent)..."
   NETWORK="$(docker inspect s2a-db --format '{{range $k, $v := .NetworkSettings.Networks}}{{println $k}}{{end}}' | head -n1 || true)"

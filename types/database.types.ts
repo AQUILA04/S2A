@@ -48,6 +48,8 @@ export type Member = {
     account_status: AccountStatus;
     role: MemberRole;
     password_hash: string;
+    /** When true, user must change password before accessing the app. */
+    must_change_password: boolean;
     created_at_app: string; // ISO timestamp
 }
 
