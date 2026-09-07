@@ -5,6 +5,7 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { createServerSupabaseClient } from "@/lib/supabase/client";
 import { hashPassword } from "@/lib/auth/helpers";
 import type {
+    Contribution,
     Member,
     MemberRole,
 } from "@/types/database.types";
@@ -306,6 +307,31 @@ export async function getMemberById(
     }
 
     return { data: data as Member };
+}
+
+export async function getMemberRecentContributions(
+    memberId: string
+): Promise<ActionResult<Contribution[]>> {
+    await requireReadAccess();
+
+    if (!memberId) {
+        return { error: "Member ID is required" };
+    }
+
+    const supabase = createServerSupabaseClient();
+    const { data, error } = await supabase
+        .from("Contributions")
+        .select("*")
+        .eq("member_id", memberId)
+        .eq("status", "VALIDATED")
+        .order("created_at", { ascending: false })
+        .range(0, 4);
+
+    if (error) {
+        return { error: `Failed to fetch member contributions: ${error.message}` };
+    }
+
+    return { data: (data as Contribution[]) ?? [] };
 }
 
 // ============================================================

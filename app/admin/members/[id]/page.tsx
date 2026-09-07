@@ -1,8 +1,15 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getMemberById } from "@/app/admin/members/actions";
+import {
+    getMemberById,
+    getMemberRecentContributions,
+} from "@/app/admin/members/actions";
+import { getMemberBalanceAction } from "@/app/dashboard/actions";
+import { ContributionCalendar } from "@/app/dashboard/components/contribution-calendar";
+import { RecordPaymentDialog } from "@/app/admin/members/components/record-payment-dialog";
 import { AssociationStatusBadge } from "@/components/s2a/status-badge";
-import { ArrowLeft, MoreVertical, Wallet, Check, AlertCircle, ArrowDownLeft, TrendingUp, UserRound } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { ArrowLeft, Wallet, ArrowDownLeft, UserRound } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -12,103 +19,151 @@ interface MemberProfilePageProps {
 
 export default async function MemberProfilePage({ params }: MemberProfilePageProps) {
     const { id } = await params;
-    const result = await getMemberById(id);
+    const [memberResult, balanceResult, contributionsResult] = await Promise.all([
+        getMemberById(id),
+        getMemberBalanceAction({ memberId: id }),
+        getMemberRecentContributions(id),
+    ]);
 
-    if (result.error || !result.data) {
+    if (memberResult.error || !memberResult.data) {
         notFound();
     }
 
-    const member = result.data;
-    const joinedDate = new Date(member.join_date).toLocaleDateString("en-US", { month: "short", year: "numeric" });
+    const member = memberResult.data;
+    const joinedDate = new Date(member.join_date).toLocaleDateString("fr-FR", {
+        month: "short",
+        year: "numeric",
+    });
+    const memberName = `${member.first_name} ${member.last_name}`;
+    const balance = balanceResult.data;
+    const contributions = contributionsResult.data ?? [];
 
-    // Mock functions for UI presentation matching the mockup (until Epic 3 is done)
-    const mockBalance = 2450000;
-    const mockFunctioningFund = 2;
-    const mockSavingsBalance = 10;
+    if (!balance || balanceResult.error) {
+        return (
+            <div className="m-4 rounded-lg border border-destructive/30 bg-destructive/10 p-6 text-destructive">
+                <h1 className="font-bold">Erreur de chargement du profil financier</h1>
+                <p className="mt-1 text-sm">
+                    {balanceResult.error ?? "Impossible de charger le solde du membre."}
+                </p>
+            </div>
+        );
+    }
+
+    const operatingRatio =
+        balance.totalPaid > 0 ? (balance.operatingFees / balance.totalPaid) * 100 : 0;
+    const savingsRatio =
+        balance.totalPaid > 0 ? (balance.availableBalance / balance.totalPaid) * 100 : 0;
+    const formatCfa = (value: number) =>
+        `${value.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} CFA`;
 
     return (
-        <div className="bg-white min-h-screen pb-24 md:pb-8">
+        <div className="min-h-screen bg-white pb-24 md:pb-8">
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-4 border-b">
-                <Link href="/admin/members" className="p-2 -ml-2 text-muted-foreground hover:text-foreground">
-                    <ArrowLeft className="w-6 h-6" />
+            <div className="flex items-center justify-between border-b px-4 py-4">
+                <Link
+                    href="/admin/members"
+                    aria-label="Retour au registre des membres"
+                    className="-ml-2 flex h-11 w-11 items-center justify-center text-muted-foreground hover:text-foreground"
+                >
+                    <ArrowLeft className="h-6 w-6" aria-hidden="true" />
                 </Link>
-                <h1 className="text-lg font-bold">Member Profile</h1>
-                <button className="p-2 -mr-2 text-muted-foreground hover:text-foreground">
-                    <MoreVertical className="w-5 h-5" />
-                </button>
+                <h1 className="text-lg font-bold">Profil du membre</h1>
+                <div className="h-11 w-11" aria-hidden="true" />
             </div>
 
             {/* Profile Hero */}
-            <div className="flex flex-col items-center mt-8 px-4">
+            <div className="mt-8 flex flex-col items-center px-4">
                 <div className="relative">
-                    <div className="w-24 h-24 rounded-full bg-muted flex items-center justify-center border-4 border-white shadow-sm overflow-hidden">
-                        {/* Placeholder for actual image */}
-                        <div className="w-full h-full bg-[#D4AF37]/20 flex items-center justify-center text-[#D4AF37]">
-                            <UserRound className="w-12 h-12" />
+                    <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-muted shadow-sm">
+                        <div className="flex h-full w-full items-center justify-center bg-gold/20 text-gold">
+                            <UserRound className="h-12 w-12" aria-hidden="true" />
                         </div>
                     </div>
-                    {/* Active dot */}
-                    <div className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-success border-2 border-white"></div>
+                    <span
+                        className={cn(
+                            "absolute bottom-1 right-1 h-4 w-4 rounded-full border-2 border-white",
+                            member.status === "ACTIVE" ? "bg-success" : "bg-destructive"
+                        )}
+                        aria-label={
+                            member.status === "ACTIVE" ? "Membre actif" : "Membre inactif"
+                        }
+                    />
                 </div>
 
-                <h2 className="text-2xl font-bold mt-4 text-[#001030]">
-                    {member.first_name} {member.last_name}
+                <h2 className="mt-4 text-2xl font-bold text-[#001030]">
+                    {memberName}
                 </h2>
 
-                <div className="flex items-center mt-1.5 space-x-2 text-sm text-muted-foreground font-medium">
+                <div className="mt-1.5 flex items-center space-x-2 text-sm font-medium text-muted-foreground">
                     <AssociationStatusBadge status={member.status} />
                     <span>•</span>
-                    <span>Joined {joinedDate}</span>
+                    <span>Adhésion {joinedDate}</span>
                 </div>
 
                 {/* Actions */}
-                <div className="flex w-full gap-3 mt-6">
-                    <button className="flex-1 bg-[#002366] text-white rounded-lg py-3 flex items-center justify-center font-semibold text-sm shadow-sm hover:bg-[#002366]/90 transition-colors">
-                        <Wallet className="w-4 h-4 mr-2" />
-                        Record Payment
-                    </button>
-                    <Link href={`/admin/members/${member.id}/edit`} className="flex-1 bg-[#F1F3F5] text-[#002366] rounded-lg py-3 flex items-center justify-center font-semibold text-sm hover:bg-[#E9ECEF] transition-colors">
-                        <UserRound className="w-4 h-4 mr-2" />
-                        Edit Profile
+                <div className="mt-6 flex w-full gap-3">
+                    <div className="flex-1 [&>button]:h-12 [&>button]:w-full">
+                        <RecordPaymentDialog
+                            memberId={member.id}
+                            memberName={memberName}
+                            memberMonthlyFee={Number(member.monthly_fee)}
+                        />
+                    </div>
+                    <Link
+                        href={`/admin/members/${member.id}/edit`}
+                        className="flex h-12 flex-1 items-center justify-center rounded-lg bg-[#F1F3F5] text-sm font-semibold text-[#002366] transition-colors hover:bg-[#E9ECEF]"
+                    >
+                        <UserRound className="mr-2 h-4 w-4" aria-hidden="true" />
+                        Modifier le profil
                     </Link>
                 </div>
             </div>
 
             {/* Financial Summary */}
             <div className="mt-8 px-4">
-                <h3 className="text-xs font-bold text-muted-foreground tracking-wider mb-3">FINANCIAL SUMMARY</h3>
+                <h3 className="mb-3 text-xs font-bold tracking-wider text-muted-foreground">
+                    SITUATION FINANCIÈRE
+                </h3>
 
-                <div className="bg-[#002366] rounded-xl p-5 text-white shadow-sm relative overflow-hidden">
-                    <div className="absolute right-4 top-4 text-white/20">
-                        <Wallet className="w-16 h-16" />
+                <div className="relative overflow-hidden rounded-xl bg-primary p-5 text-primary-foreground shadow-sm">
+                    <div className="absolute right-4 top-4 text-primary-foreground/20">
+                        <Wallet className="h-16 w-16" aria-hidden="true" />
                     </div>
-                    <div className="text-3xl font-bold mt-2 relative z-10">
-                        {mockBalance.toLocaleString("en-US")} CFA
+                    <p className="text-xs font-semibold uppercase tracking-wider">
+                        Total versé
+                    </p>
+                    <div className="relative z-10 mt-2 font-mono text-3xl font-bold">
+                        {formatCfa(balance.totalPaid)}
                     </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 mt-3">
-                    <div className="bg-white border rounded-xl p-4 shadow-sm">
-                        <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Functioning Fund</div>
-                        <div className="flex items-baseline">
-                            <span className="text-xl font-bold">{mockFunctioningFund}</span>
-                            <span className="text-sm text-muted-foreground ml-1">/12</span>
-                            <span className="text-xs text-muted-foreground ml-1">Months</span>
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                    <div className="rounded-xl border bg-white p-4 shadow-sm">
+                        <div className="mb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                            Fonds fonct. (2/12)
                         </div>
-                        <div className="h-1.5 w-full bg-muted mt-3 rounded-full overflow-hidden">
-                            <div className="h-full bg-[#002366] rounded-full" style={{ width: `${(mockFunctioningFund / 12) * 100}%` }}></div>
+                        <div className="font-mono text-xl font-bold">
+                            {formatCfa(balance.operatingFees)}
+                        </div>
+                        <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                            <div
+                                className="h-full rounded-full bg-primary"
+                                style={{ width: `${Math.min(100, operatingRatio)}%` }}
+                            />
                         </div>
                     </div>
-                    <div className="bg-white border rounded-xl p-4 shadow-sm">
-                        <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Savings Balance</div>
-                        <div className="flex items-baseline">
-                            <span className="text-xl font-bold">{mockSavingsBalance}</span>
-                            <span className="text-sm text-muted-foreground ml-1">/12</span>
-                            <span className="text-xs text-muted-foreground ml-1">Months</span>
+                    <div className="rounded-xl border bg-white p-4 shadow-sm">
+                        <div className="mb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                            Solde épargne (10/12)
                         </div>
-                        <div className="h-1.5 w-full bg-muted mt-3 rounded-full overflow-hidden">
-                            <div className="h-full bg-[#002366] rounded-full" style={{ width: `${(mockSavingsBalance / 12) * 100}%` }}></div>
+                        <div className="font-mono text-xl font-bold text-gold">
+                            {formatCfa(balance.availableBalance)}
+                        </div>
+                        <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                            <div
+                                className="h-full rounded-full bg-gold"
+                                style={{ width: `${Math.min(100, savingsRatio)}%` }}
+                            />
                         </div>
                     </div>
                 </div>
@@ -116,85 +171,60 @@ export default async function MemberProfilePage({ params }: MemberProfilePagePro
 
             {/* Contribution Calendar */}
             <div className="mt-8 px-4">
-                <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-xs font-bold text-muted-foreground tracking-wider">CONTRIBUTION CALENDAR</h3>
-                    <span className="text-xs text-muted-foreground font-medium">2024</span>
-                </div>
-
-                <div className="bg-white border rounded-xl p-4 shadow-sm">
-                    <div className="grid grid-cols-4 gap-3">
-                        {/* Mock data for calendar */}
-                        {[{ m: "JAN", s: "PAID" }, { m: "FEB", s: "PAID" }, { m: "MAR", s: "ARREARS" }, { m: "APR", s: "UPCOMING" },
-                        { m: "MAY", s: "UPCOMING" }, { m: "JUN", s: "UPCOMING" }, { m: "JUL", s: "UPCOMING" }, { m: "AUG", s: "UPCOMING" }]
-                            .map((item) => (
-                                <div key={item.m} className="flex flex-col items-center">
-                                    <div className={`w-full aspect-square rounded-lg flex items-center justify-center mb-1.5 ${item.s === "PAID" ? "bg-success text-white" :
-                                            item.s === "ARREARS" ? "bg-destructive text-white" :
-                                                "bg-muted/50"
-                                        }`}>
-                                        {item.s === "PAID" && <Check className="w-4 h-4" />}
-                                        {item.s === "ARREARS" && <AlertCircle className="w-4 h-4" />}
-                                    </div>
-                                    <span className="text-[10px] font-bold text-muted-foreground uppercase">{item.m}</span>
-                                </div>
-                            ))}
-                    </div>
-
-                    <div className="flex items-center gap-4 mt-6 pt-4 border-t border-dashed">
-                        <div className="flex items-center gap-1.5">
-                            <div className="w-2 h-2 rounded-full bg-success"></div>
-                            <span className="text-[10px] font-bold text-muted-foreground">Paid</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                            <div className="w-2 h-2 rounded-full bg-destructive"></div>
-                            <span className="text-[10px] font-bold text-muted-foreground">Arrears</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                            <div className="w-2 h-2 rounded-full bg-muted"></div>
-                            <span className="text-[10px] font-bold text-muted-foreground">Upcoming</span>
-                        </div>
-                    </div>
-                </div>
+                <ContributionCalendar
+                    memberId={id}
+                    data={balance.timeline}
+                    isLoading={false}
+                />
             </div>
 
             {/* Recent Transactions */}
             <div className="mt-8 px-4 mb-4">
-                <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-xs font-bold text-muted-foreground tracking-wider">RECENT TRANSACTIONS</h3>
-                    <button className="text-xs font-bold text-[#002366]">View All</button>
-                </div>
+                <h3 className="mb-3 text-xs font-bold tracking-wider text-muted-foreground">
+                    TRANSACTIONS RÉCENTES
+                </h3>
 
-                <div className="space-y-3">
-                    {/* Transaction 1 */}
-                    <div className="bg-white border rounded-xl p-4 flex items-center shadow-sm">
-                        <div className="w-10 h-10 rounded-full bg-success/15 text-success flex items-center justify-center shrink-0">
-                            <ArrowDownLeft className="w-5 h-5" />
-                        </div>
-                        <div className="ml-3 flex-1 overflow-hidden">
-                            <div className="font-bold text-sm text-[#001030] truncate">Monthly Contribution</div>
-                            <div className="text-xs text-muted-foreground mt-0.5">Oct 12, 2023 • Cash</div>
-                        </div>
-                        <div className="text-right">
-                            <div className="font-bold text-sm text-[#001030]">+50,000</div>
-                            <div className="text-[10px] font-bold text-success uppercase mt-0.5">PAID</div>
-                        </div>
+                {contributionsResult.error ? (
+                    <p role="alert" className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+                        Impossible de charger les transactions récentes.
+                    </p>
+                ) : contributions.length === 0 ? (
+                    <div className="rounded-xl border bg-white p-8 text-center text-sm text-muted-foreground shadow-sm">
+                        Aucune cotisation validée pour ce membre.
                     </div>
-
-                    {/* Transaction 2 */}
-                    <div className="bg-white border rounded-xl p-4 flex items-center shadow-sm">
-                        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0 text-[#002366]">
-                            <TrendingUp className="w-5 h-5" />
-                        </div>
-                        <div className="ml-3 flex-1 overflow-hidden">
-                            <div className="font-bold text-sm text-[#001030] truncate">Project Investment</div>
-                            <div className="text-xs text-muted-foreground mt-0.5">Sep 28, 2023 • Real Estate</div>
-                        </div>
-                        <div className="text-right">
-                            <div className="font-bold text-sm text-[#001030]">-250,000</div>
-                            <div className="text-[10px] font-bold text-muted-foreground uppercase mt-0.5">DEBITED</div>
-                        </div>
+                ) : (
+                    <div className="space-y-3">
+                        {contributions.map((contribution) => (
+                            <div
+                                key={contribution.id}
+                                className="flex items-center rounded-xl border bg-white p-4 shadow-sm"
+                            >
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-success/15 text-success">
+                                    <ArrowDownLeft className="h-5 w-5" aria-hidden="true" />
+                                </div>
+                                <div className="ml-3 flex-1 overflow-hidden">
+                                    <div className="truncate text-sm font-bold text-[#001030]">
+                                        Cotisation {contribution.month}/{contribution.year}
+                                    </div>
+                                    <div className="mt-0.5 text-xs text-muted-foreground">
+                                        {new Date(
+                                            contribution.validated_at ?? contribution.created_at
+                                        ).toLocaleDateString("fr-FR")}{" "}
+                                        • {contribution.payment_channel}
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <div className="font-mono text-sm font-bold text-success">
+                                        +{formatCfa(Number(contribution.amount))}
+                                    </div>
+                                    <div className="mt-0.5 text-[10px] font-bold uppercase text-success">
+                                        Validé
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
                     </div>
-                </div>
+                )}
             </div>
         </div>
     );

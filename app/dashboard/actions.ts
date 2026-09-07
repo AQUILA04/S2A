@@ -26,7 +26,13 @@ export interface BalanceActionResult {
 //  RBAC Roles allowed to query any member's balance
 // ─────────────────────────────────────────────────────
 
-const PRIVILEGED_ROLES = ["PRESIDENT", "SG", "TREASURER"] as const;
+const PRIVILEGED_ROLES = [
+  "PRESIDENT",
+  "SG",
+  "SG_ADJOINT",
+  "TREASURER",
+  "TRESORIER_ADJOINT",
+] as const;
 
 // ─────────────────────────────────────────────────────
 //  Server Action: getMemberBalanceAction
@@ -37,7 +43,7 @@ const PRIVILEGED_ROLES = ["PRESIDENT", "SG", "TREASURER"] as const;
  *
  * RBAC Policy (IDOR Prevention):
  *   - A MEMBER can only fetch their OWN balance (currentUser.id === requestedMemberId).
- *   - Users with a PRIVILEGED_ROLE (PRESIDENT, SG, TREASURER) can fetch any member's balance.
+ *   - Executive-board users can fetch any member's balance.
  *   - All other cases return UNAUTHORIZED.
  */
 export async function getMemberBalanceAction(rawInput: unknown): Promise<BalanceActionResult> {
