@@ -11,17 +11,13 @@ FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# NEXT_PUBLIC_* are embedded in the client bundle at build time
-ARG NEXT_PUBLIC_SUPABASE_URL
-ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
-ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
-ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
-
 # NextAuth validates env while collecting page data during `next build`
 ARG NEXTAUTH_SECRET
 ARG NEXTAUTH_URL
 ENV NEXTAUTH_SECRET=$NEXTAUTH_SECRET
 ENV NEXTAUTH_URL=$NEXTAUTH_URL
+# Placeholder so any residual build-time checks don't fail
+ENV DATABASE_URL=postgresql://build:build@127.0.0.1:5432/build
 
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build

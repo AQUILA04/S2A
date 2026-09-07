@@ -355,9 +355,15 @@ export async function bulkImportMembers(
             return { error: `Validation de duplicata échouée pour un lot: ${fetchError.message}` };
         }
 
-        const existingEmails = new Set(existingMembers?.map(m => m.email));
+        const existingEmails = new Set(
+            (existingMembers as { email: string; phone: string }[] | null)?.map(
+                (m: { email: string }) => m.email
+            )
+        );
         const existingPhones = new Set(
-            existingMembers?.map((m) => normalizePhoneToE164(m.phone) ?? m.phone)
+            (existingMembers as { email: string; phone: string }[] | null)?.map(
+                (m: { phone: string }) => normalizePhoneToE164(m.phone) ?? m.phone
+            )
         );
 
         const toInsert = [];

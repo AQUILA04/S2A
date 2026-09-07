@@ -1,0 +1,24 @@
+# Local Postgres for Amicale S2A development
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: s2a-db-local
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: s2a
+      POSTGRES_PASSWORD: s2a_dev_password
+      POSTGRES_DB: s2a
+    volumes:
+      - s2a_pg_data_local:/var/lib/postgresql/data
+      - ./db/migrations/V001__initial_schema.sql:/docker-entrypoint-initdb.d/01_v001.sql:ro
+      - ./db/migrations/V002__rbac_and_account_status.sql:/docker-entrypoint-initdb.d/02_v002.sql:ro
+      - ./db/migrations/V003__payment_channels.sql:/docker-entrypoint-initdb.d/03_v003.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U s2a -d s2a"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  s2a_pg_data_local:

@@ -1,20 +1,46 @@
 # Amicale S2A — Contabo production stack
 # Prerequisite: shared Traefik on network `traefik-public` (HTTPS + Let's Encrypt).
-# Database: Supabase cloud (no Postgres container on VPS).
+# Database: self-hosted Postgres (service `db` below).
 
 services:
+  db:
+    image: postgres:16-alpine
+    container_name: s2a-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-s2a}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      POSTGRES_DB: ${DB_NAME:-s2a}
+    volumes:
+      - s2a_pg_data:/var/lib/postgresql/data
+      - ./db-migrations/V001__initial_schema.sql:/docker-entrypoint-initdb.d/01_v001.sql:ro
+      - ./db-migrations/V002__rbac_and_account_status.sql:/docker-entrypoint-initdb.d/02_v002.sql:ro
+      - ./db-migrations/V003__payment_channels.sql:/docker-entrypoint-initdb.d/03_v003.sql:ro
+    networks:
+      - s2a-internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-s2a} -d ${DB_NAME:-s2a}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   app:
     image: ${IMAGE:-ghcr.io/aquila04/s2a:latest}
     container_name: s2a-app
     restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
     env_file:
       - .env.prod
     environment:
       NODE_ENV: production
       PORT: "3000"
       HOSTNAME: "0.0.0.0"
+      DATABASE_URL: postgresql://${DB_USER:-s2a}:${DB_PASSWORD}@db:5432/${DB_NAME:-s2a}
     networks:
       - traefik-public
+      - s2a-internal
     labels:
       - traefik.enable=true
       - traefik.docker.network=traefik-public
@@ -36,6 +62,11 @@ services:
       retries: 3
       start_period: 40s
 
+volumes:
+  s2a_pg_data:
+
 networks:
   traefik-public:
     external: true
+  s2a-internal:
+    driver: bridge

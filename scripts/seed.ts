@@ -1,29 +1,24 @@
 #!/usr/bin/env ts-node
 /**
- * Seed Script: Initialize Primary Accounts (GS, Treasurer, Deputy Treasurer)
+ * Seed Script: Initialize Primary Accounts (President, GS, Treasurer, Deputy Treasurer)
  *
  * Usage:
  *   npm run seed
  *
  * Prerequisites:
- *   - NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in .env.local
- *   - The V001__initial_schema.sql migration must be applied to the database
+ *   - DATABASE_URL must be set in .env.local
+ *   - Migrations V001–V003 applied (docker compose up db)
  *
- * This script is idempotent: running it multiple times will not create duplicate accounts.
+ * Idempotent: running multiple times will not create duplicate accounts.
  */
 
 import * as bcrypt from "bcryptjs";
-import { createClient } from "@supabase/supabase-js";
+import postgres from "postgres";
 import * as dotenv from "dotenv";
 import * as path from "path";
-import type { Database, MemberRole, MemberStatus, AccountStatus } from "../types/database.types";
+import type { MemberRole, MemberStatus, AccountStatus } from "../types/database.types";
 
-// Load environment from .env.local
 dotenv.config({ path: path.resolve(__dirname, "../.env.local") });
-
-// ============================================================
-// Configuration — accounts to seed
-// ============================================================
 
 interface SeedAccount {
     first_name: string;
@@ -36,11 +31,25 @@ interface SeedAccount {
     account_status: AccountStatus;
     role: MemberRole;
     initial_password: string;
-    /** Label used in console output */
     label: string;
 }
 
+const DEFAULT_PASSWORD = "Change-Me-Now-2026!";
+
 const SEED_ACCOUNTS: SeedAccount[] = [
+    {
+        label: "Président",
+        first_name: "Admin",
+        last_name: "President",
+        email: "president@amicale-s2a.org",
+        phone: "+0000000003",
+        join_date: "2016-01-01",
+        monthly_fee: 0,
+        status: "ACTIVE",
+        account_status: "ACTIVE",
+        role: "PRESIDENT",
+        initial_password: process.env.PRESIDENT_SEED_PASSWORD || DEFAULT_PASSWORD,
+    },
     {
         label: "SG (Secrétaire Général)",
         first_name: "Admin",
@@ -52,7 +61,7 @@ const SEED_ACCOUNTS: SeedAccount[] = [
         status: "ACTIVE",
         account_status: "ACTIVE",
         role: "SG",
-        initial_password: process.env.GS_SEED_PASSWORD || "Change-Me-Now-2026!",
+        initial_password: process.env.GS_SEED_PASSWORD || DEFAULT_PASSWORD,
     },
     {
         label: "Trésorier",
@@ -65,7 +74,7 @@ const SEED_ACCOUNTS: SeedAccount[] = [
         status: "ACTIVE",
         account_status: "ACTIVE",
         role: "TREASURER",
-        initial_password: process.env.TREASURER_SEED_PASSWORD || "Change-Me-Now-2026!",
+        initial_password: process.env.TREASURER_SEED_PASSWORD || DEFAULT_PASSWORD,
     },
     {
         label: "Trésorier Adjoint",
@@ -78,118 +87,83 @@ const SEED_ACCOUNTS: SeedAccount[] = [
         status: "ACTIVE",
         account_status: "ACTIVE",
         role: "TRESORIER_ADJOINT",
-        initial_password: process.env.TRESORIER_ADJOINT_SEED_PASSWORD || "Change-Me-Now-2026!",
+        initial_password: process.env.TRESORIER_ADJOINT_SEED_PASSWORD || DEFAULT_PASSWORD,
     },
 ];
 
-// ============================================================
-// Helper: Validate environment
-// ============================================================
-
-function validateEnvironment(): { url: string; serviceKey: string } {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
+function validateEnvironment(): string {
+    const url = process.env.DATABASE_URL;
     if (!url) {
         throw new Error(
-            "❌ Missing NEXT_PUBLIC_SUPABASE_URL in .env.local\n" +
-            "   Please set: NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co"
+            "Missing DATABASE_URL in .env.local\n" +
+                "Example: DATABASE_URL=postgresql://s2a:s2a_dev_password@localhost:5433/s2a"
         );
     }
-
-    if (!serviceKey) {
-        throw new Error(
-            "❌ Missing SUPABASE_SERVICE_ROLE_KEY in .env.local\n" +
-            "   Find it at: https://supabase.com/dashboard/project/_/settings/api"
-        );
-    }
-
-    return { url, serviceKey };
+    return url;
 }
-
-// ============================================================
-// Helper: Hash password securely
-// ============================================================
 
 async function hashPassword(plaintext: string): Promise<string> {
-    const SALT_ROUNDS = 12;
-    return bcrypt.hash(plaintext, SALT_ROUNDS);
+    return bcrypt.hash(plaintext, 12);
 }
 
-// ============================================================
-// Helper: Seed a single account (idempotent)
-// ============================================================
-
-async function seedAccount(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    supabase: any,
-    account: SeedAccount
-): Promise<void> {
+async function seedAccount(sql: postgres.Sql, account: SeedAccount): Promise<void> {
     console.log(`\n── ${account.label} ──`);
 
-    // Check for existing account (idempotency guard)
-    const { data: existing, error: lookupError } = await supabase
-        .from("Members")
-        .select("id, email, role")
-        .eq("email", account.email)
-        .single();
+    const existing = await sql`
+        SELECT id, email, role FROM "Members" WHERE email = ${account.email} LIMIT 1
+    `;
 
-    if (lookupError && lookupError.code !== "PGRST116") {
-        // PGRST116 = "No rows found" — anything else is a real error
-        throw new Error(
-            `❌ Failed to check for existing ${account.label} account: ${lookupError.message}`
-        );
-    }
-
-    if (existing) {
-        console.log(`   ✅ Already exists (id: ${existing.id}) — skipped.`);
+    if (existing.length > 0) {
+        console.log(`   ✅ Already exists (id: ${existing[0].id}) — skipped.`);
         return;
     }
 
-    // Hash the initial password
     console.log(`   🔐 Hashing password...`);
     const passwordHash = await hashPassword(account.initial_password);
 
-    // Insert the account
     console.log(`   📝 Inserting into Members table...`);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: newMember, error: insertError } = await (supabase.from("Members") as any)
-        .insert({
-            first_name: account.first_name,
-            last_name: account.last_name,
-            email: account.email,
-            phone: account.phone,
-            join_date: account.join_date,
-            monthly_fee: account.monthly_fee,
-            status: account.status,
-            account_status: account.account_status,
-            role: account.role,
-            password_hash: passwordHash,
-        })
-        .select()
-        .single();
+    const inserted = await sql`
+        INSERT INTO "Members" (
+            first_name, last_name, email, phone, join_date,
+            monthly_fee, status, account_status, role, password_hash
+        ) VALUES (
+            ${account.first_name},
+            ${account.last_name},
+            ${account.email},
+            ${account.phone},
+            ${account.join_date},
+            ${account.monthly_fee},
+            ${account.status},
+            ${account.account_status},
+            ${account.role},
+            ${passwordHash}
+        )
+        RETURNING id, email, role
+    `;
 
-    if (insertError) {
-        throw new Error(`❌ Failed to insert ${account.label}: ${insertError.message}`);
-    }
+    const newMember = inserted[0];
 
-    // Write audit log
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: auditError } = await (supabase.from("AuditLogs") as any).insert({
-        actor_id: newMember.id,
-        action_type: "SYSTEM_INITIALIZATION",
-        metadata: {
-            new_value: {
-                event: `${account.label} account seeded during system initialization`,
-                member_email: newMember.email,
-                member_role: newMember.role,
-                seeded_at: new Date().toISOString(),
-            },
-        },
-    });
-
-    if (auditError) {
-        console.warn(`   ⚠️  Audit log write failed (non-fatal): ${auditError.message}`);
+    try {
+        await sql`
+            INSERT INTO "AuditLogs" (actor_id, action_type, metadata)
+            VALUES (
+                ${newMember.id},
+                ${"SYSTEM_INITIALIZATION"},
+                ${sql.json({
+                    new_value: {
+                        event: `${account.label} account seeded during system initialization`,
+                        member_email: newMember.email,
+                        member_role: newMember.role,
+                        seeded_at: new Date().toISOString(),
+                    },
+                })}
+            )
+        `;
+    } catch (auditError) {
+        console.warn(
+            `   ⚠️  Audit log write failed (non-fatal):`,
+            auditError instanceof Error ? auditError.message : auditError
+        );
     }
 
     console.log(`   ✅ Created successfully!`);
@@ -198,44 +172,30 @@ async function seedAccount(
     console.log(`      Role  : ${newMember.role}`);
 }
 
-// ============================================================
-// Main seed function
-// ============================================================
-
 async function seed(): Promise<void> {
     console.log("🌱 Starting S2A database seed...");
+    const url = validateEnvironment();
+    const sql = postgres(url, { max: 1, prepare: false });
 
-    // 1. Validate environment
-    const { url, serviceKey } = validateEnvironment();
+    try {
+        for (const account of SEED_ACCOUNTS) {
+            await seedAccount(sql, account);
+        }
 
-    // 2. Create typed Supabase client (service role — bypasses RLS)
-    const supabase = createClient<Database>(url, serviceKey, {
-        auth: {
-            autoRefreshToken: false,
-            persistSession: false,
-        },
-    });
-
-    // 3. Seed each account in order
-    for (const account of SEED_ACCOUNTS) {
-        await seedAccount(supabase, account);
+        console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        console.log("✅ Seed completed successfully!");
+        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        console.log("\n⚠️  IMPORTANT SECURITY NOTICE:");
+        console.log("   Change ALL initial passwords immediately after the first login!");
+        console.log("   Optional env overrides:");
+        console.log("     PRESIDENT_SEED_PASSWORD");
+        console.log("     GS_SEED_PASSWORD");
+        console.log("     TREASURER_SEED_PASSWORD");
+        console.log("     TRESORIER_ADJOINT_SEED_PASSWORD");
+    } finally {
+        await sql.end({ timeout: 5 });
     }
-
-    // 4. Summary
-    console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    console.log("✅ Seed completed successfully!");
-    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    console.log("\n⚠️  IMPORTANT SECURITY NOTICE:");
-    console.log("   Change ALL initial passwords immediately after the first login!");
-    console.log("   You can also set custom passwords via env vars:");
-    console.log("     GS_SEED_PASSWORD");
-    console.log("     TREASURER_SEED_PASSWORD");
-    console.log("     TRESORIER_ADJOINT_SEED_PASSWORD");
 }
-
-// ============================================================
-// Entry point
-// ============================================================
 
 seed()
     .then(() => process.exit(0))

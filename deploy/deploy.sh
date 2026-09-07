@@ -16,16 +16,38 @@ if [[ ! -f .env.prod ]]; then
   exit 1
 fi
 
-# Export IMAGE for compose substitution
+set -a
+# shellcheck disable=SC1091
+source .env.prod
+set +a
+
 export IMAGE
+export DB_USER="${DB_USER:-s2a}"
+export DB_PASSWORD="${DB_PASSWORD:?DB_PASSWORD required in .env.prod}"
+export DB_NAME="${DB_NAME:-s2a}"
 
 echo "==> Deploying ${IMAGE} (project: ${COMPOSE_PROJECT})"
-docker compose -f "${COMPOSE_FILE}" --project-name "${COMPOSE_PROJECT}" pull app
-docker compose -f "${COMPOSE_FILE}" --project-name "${COMPOSE_PROJECT}" up -d --remove-orphans
+docker compose -f "${COMPOSE_FILE}" --project-name "${COMPOSE_PROJECT}" --env-file .env.prod pull app
+docker compose -f "${COMPOSE_FILE}" --project-name "${COMPOSE_PROJECT}" --env-file .env.prod up -d --remove-orphans
 
-echo "==> Waiting for health check..."
-sleep 5
-docker compose -f "${COMPOSE_FILE}" --project-name "${COMPOSE_PROJECT}" ps
+echo "==> Waiting for db + app..."
+sleep 8
+docker compose -f "${COMPOSE_FILE}" --project-name "${COMPOSE_PROJECT}" --env-file .env.prod ps
+
+if [[ -f seed.mjs ]]; then
+  echo "==> Seeding admin accounts (idempotent)..."
+  NETWORK="$(docker inspect s2a-db -f '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}' 2>/dev/null | head -1 || true)"
+  if [[ -n "${NETWORK}" ]]; then
+    docker run --rm \
+      --network "${NETWORK}" \
+      -e DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}" \
+      -v "${SCRIPT_DIR}/seed.mjs:/seed.mjs:ro" \
+      node:20-alpine \
+      sh -c "npm install --silent postgres bcryptjs >/dev/null 2>&1 && node /seed.mjs" || echo "WARN: seed failed (non-fatal)"
+  else
+    echo "WARN: could not resolve db network for seed"
+  fi
+fi
 
 APP_HOST="$(grep -E '^APP_HOST=' .env.prod | cut -d= -f2- | tr -d '"' || true)"
 APP_HOST="${APP_HOST:-s2a.optimizesolux.com}"

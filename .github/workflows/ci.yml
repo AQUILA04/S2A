@@ -25,7 +25,6 @@ jobs:
       - run: npm test
       - run: npm run build
         env:
-          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+          DATABASE_URL: postgresql://s2a:ci@127.0.0.1:5432/s2a
           NEXTAUTH_SECRET: ci-build-secret-min-32-chars-long
           NEXTAUTH_URL: http://localhost:3000

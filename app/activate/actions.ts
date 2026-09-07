@@ -37,8 +37,8 @@ async function findPendingMemberByPhone(e164: string) {
         return { error: "Impossible de vérifier le compte." as const, member: null };
     }
 
-    const member = members.find(
-        (m) => normalizePhoneToE164(m.phone) === e164
+    const member = (members as { phone: string; id: string }[]).find(
+        (m: { phone: string }) => normalizePhoneToE164(m.phone) === e164
     );
 
     if (!member) {
