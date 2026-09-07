@@ -34,12 +34,34 @@ function mapPgError(err: unknown): DbError {
     };
 }
 
+/** Split PostgREST `.or()` fragments on commas that are outside parentheses. */
+export function splitOrFragments(expression: string): string[] {
+    const parts: string[] = [];
+    let depth = 0;
+    let current = "";
+    for (const ch of expression) {
+        if (ch === "(") depth += 1;
+        else if (ch === ")") depth = Math.max(0, depth - 1);
+
+        if (ch === "," && depth === 0) {
+            const trimmed = current.trim();
+            if (trimmed) parts.push(trimmed);
+            current = "";
+            continue;
+        }
+        current += ch;
+    }
+    const trimmed = current.trim();
+    if (trimmed) parts.push(trimmed);
+    return parts;
+}
+
 /** Parse PostgREST `.or()` fragments used in this codebase. */
-function parseOrExpression(
+export function parseOrExpression(
     expression: string,
     params: unknown[]
 ): string {
-    const parts = expression.split(",").map((p) => p.trim()).filter(Boolean);
+    const parts = splitOrFragments(expression);
     const sqlParts: string[] = [];
 
     for (const part of parts) {
@@ -56,16 +78,45 @@ function parseOrExpression(
         if (inMatch) {
             const col = quoteIdent(inMatch[1]);
             const raw = inMatch[2];
-            const values = raw.split(",").map((v) => {
-                const t = v.trim();
-                if (
-                    (t.startsWith('"') && t.endsWith('"')) ||
-                    (t.startsWith("'") && t.endsWith("'"))
-                ) {
-                    return t.slice(1, -1);
+            // Split values on commas outside quotes
+            const values: string[] = [];
+            let buf = "";
+            let inQuote: '"' | "'" | null = null;
+            for (const ch of raw) {
+                if ((ch === '"' || ch === "'") && !inQuote) {
+                    inQuote = ch;
+                    buf += ch;
+                    continue;
                 }
-                return t;
-            });
+                if (inQuote && ch === inQuote) {
+                    inQuote = null;
+                    buf += ch;
+                    continue;
+                }
+                if (ch === "," && !inQuote) {
+                    const t = buf.trim();
+                    if (t) {
+                        values.push(
+                            (t.startsWith('"') && t.endsWith('"')) ||
+                                (t.startsWith("'") && t.endsWith("'"))
+                                ? t.slice(1, -1)
+                                : t
+                        );
+                    }
+                    buf = "";
+                    continue;
+                }
+                buf += ch;
+            }
+            const last = buf.trim();
+            if (last) {
+                values.push(
+                    (last.startsWith('"') && last.endsWith('"')) ||
+                        (last.startsWith("'") && last.endsWith("'"))
+                        ? last.slice(1, -1)
+                        : last
+                );
+            }
             params.push(values);
             sqlParts.push(`${col} = ANY($${params.length})`);
             continue;

@@ -3,7 +3,6 @@
 import { useState, useRef } from "react";
 import { Upload, FileSpreadsheet, AlertTriangle, Loader2, CheckCircle2 } from "lucide-react";
 import * as XLSX from "xlsx";
-import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -29,6 +28,10 @@ export function MassImportDialog() {
     // Preview state
     const [validRows, setValidRows] = useState<ValidatedMemberJson[]>([]);
     const [errorRows, setErrorRows] = useState<{ row: number; errors: string[] }[]>([]);
+    const [importMessage, setImportMessage] = useState<{
+        type: "success" | "error";
+        text: string;
+    } | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const { toast } = useToast();
@@ -37,6 +40,7 @@ export function MassImportDialog() {
         setFile(null);
         setValidRows([]);
         setErrorRows([]);
+        setImportMessage(null);
         if (fileInputRef.current) {
             fileInputRef.current.value = "";
         }
@@ -50,6 +54,7 @@ export function MassImportDialog() {
         setIsParsing(true);
         setValidRows([]);
         setErrorRows([]);
+        setImportMessage(null);
 
         try {
             const data = await selectedFile.arrayBuffer();
@@ -115,10 +120,12 @@ export function MassImportDialog() {
         if (validRows.length === 0) return;
         
         setIsSubmitting(true);
+        setImportMessage(null);
         // Chunk validRows to avoid hitting 1MB Server Action limits on huge files
         const CHUNK_SIZE = 500;
         let totalSuccess = 0;
         let totalFailures = 0;
+        let totalOtpFailures = 0;
         let allFailedRows: typeof errorRows = [];
         let hasError = false;
         let lastErrorMsg = "";
@@ -136,40 +143,52 @@ export function MassImportDialog() {
                 
                 totalSuccess += result.data?.successCount || 0;
                 totalFailures += result.data?.failureCount || 0;
+                totalOtpFailures += result.data?.otpFailureCount || 0;
                 if (result.data?.failedRows) {
                     allFailedRows = [...allFailedRows, ...result.data.failedRows];
                 }
             }
             
             if (hasError) {
+                const text = lastErrorMsg || "Échec de l'import.";
+                setImportMessage({ type: "error", text });
                 toast({
                     title: "Erreur lors de l'import",
-                    description: lastErrorMsg,
+                    description: text,
                     variant: "destructive",
                 });
             } else {
+                const otpNote =
+                    totalOtpFailures > 0
+                        ? ` ${totalOtpFailures} envoi(s) SMS d'activation ont échoué (les comptes sont créés).`
+                        : "";
+                const text = `${totalSuccess} membre(s) importé(s) avec succès. ${totalFailures} échec(s).${otpNote}`;
+                setImportMessage({
+                    type: totalSuccess > 0 ? "success" : "error",
+                    text,
+                });
                 toast({
                     title: "Importation terminée",
-                    description: `${totalSuccess} membre(s) importé(s) avec succès. ${totalFailures} échec(s).`,
+                    description: text,
                 });
                 
                 if (totalFailures === 0 && totalSuccess > 0) {
-                    setOpen(false);
-                    resetState();
-                } else {
-                    // Update error rows if some failed in DB
-                    if (allFailedRows.length > 0) {
-                       setErrorRows(prev => [...prev, ...allFailedRows]);
-                       // Keep validRows if you wanted to allow retry of failures? 
-                       // No, the success ones are committed. We should clear validRows so they aren't re-submitted.
-                       setValidRows([]); 
-                    }
+                    // Keep dialog open briefly so the success message is visible
+                    setValidRows([]);
+                } else if (allFailedRows.length > 0) {
+                    setErrorRows((prev) => [...prev, ...allFailedRows]);
+                    setValidRows([]);
                 }
             }
         } catch (e) {
+            const text =
+                e instanceof Error
+                    ? e.message
+                    : "Une erreur est survenue pendant l'import.";
+            setImportMessage({ type: "error", text });
              toast({
                 title: "Erreur inattendue",
-                description: "Une erreur est survenue pendant l'import.",
+                description: text,
                 variant: "destructive",
             });
         } finally {
@@ -258,6 +277,20 @@ export function MassImportDialog() {
                                                     <span className="font-semibold">Ligne {err.row}:</span> {err.errors.join(", ")}
                                                 </div>
                                             ))}
+                                        </div>
+                                    )}
+
+                                    {importMessage && (
+                                        <div
+                                            role={importMessage.type === "error" ? "alert" : "status"}
+                                            aria-live="polite"
+                                            className={
+                                                importMessage.type === "error"
+                                                    ? "rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+                                                    : "rounded-lg border border-success/30 bg-success/10 px-4 py-3 text-sm text-success"
+                                            }
+                                        >
+                                            {importMessage.text}
                                         </div>
                                     )}
 

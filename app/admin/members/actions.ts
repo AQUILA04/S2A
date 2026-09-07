@@ -329,7 +329,6 @@ export async function bulkImportMembers(
     
     // Track total successes and failures across chunks
     let totalSuccessCount = 0;
-    let otpFailureCount = 0;
     const totalFailedRows: { row: number; errors: string[] }[] = [];
     const insertedForOtp: { id: string; phone: string }[] = [];
 
@@ -347,24 +346,30 @@ export async function bulkImportMembers(
             ),
         ];
 
-        const { data: existingMembers, error: fetchError } = await supabase
-            .from("Members")
-            .select("email, phone")
-            .or(`email.in.(${chunkEmails.map(e => `"${e}"`).join(",")}),phone.in.(${chunkPhoneValues.map(p => `"${p}"`).join(",")})`);
+        // Use separate .in() queries — PostgREST-style .or(email.in.(a,b),...) breaks when
+        // emails contain commas/dots because parseOrExpression formerly split on every comma.
+        const [emailResult, phoneResult] = await Promise.all([
+            chunkEmails.length > 0
+                ? supabase.from("Members").select("email, phone").in("email", chunkEmails)
+                : Promise.resolve({ data: [], error: null }),
+            chunkPhoneValues.length > 0
+                ? supabase.from("Members").select("email, phone").in("phone", chunkPhoneValues)
+                : Promise.resolve({ data: [], error: null }),
+        ]);
 
-        if (fetchError) {
-            return { error: `Validation de duplicata échouée pour un lot: ${fetchError.message}` };
+        if (emailResult.error || phoneResult.error) {
+            const msg = emailResult.error?.message ?? phoneResult.error?.message ?? "unknown";
+            return { error: `Validation de duplicata échouée pour un lot: ${msg}` };
         }
 
-        const existingEmails = new Set(
-            (existingMembers as { email: string; phone: string }[] | null)?.map(
-                (m: { email: string }) => m.email
-            )
-        );
+        const existingRows = [
+            ...((emailResult.data as { email: string; phone: string }[] | null) ?? []),
+            ...((phoneResult.data as { email: string; phone: string }[] | null) ?? []),
+        ];
+
+        const existingEmails = new Set(existingRows.map((m) => m.email));
         const existingPhones = new Set(
-            (existingMembers as { email: string; phone: string }[] | null)?.map(
-                (m: { phone: string }) => normalizePhoneToE164(m.phone) ?? m.phone
-            )
+            existingRows.map((m) => normalizePhoneToE164(m.phone) ?? m.phone)
         );
 
         const toInsert = [];
@@ -422,20 +427,23 @@ export async function bulkImportMembers(
         }
     }
 
+    // Send activation OTPs after insert — do not block the HTTP response on SMS fan-out
+    // (44 parallel hub calls can exceed the action timeout and hide success from the UI).
     if (insertedForOtp.length > 0) {
-        const otpResults = await Promise.allSettled(
+        void Promise.allSettled(
             insertedForOtp.map((row) =>
                 sendActivationOtp(row.phone, row.id, `s2a-activation-${row.id}`)
             )
-        );
-        otpFailureCount = otpResults.filter(
-            (r) => r.status === "rejected" || (r.status === "fulfilled" && !r.value.ok)
-        ).length;
-        if (otpFailureCount > 0) {
-            console.warn(
-                `[bulkImportMembers] OTP send failed for ${otpFailureCount}/${insertedForOtp.length} members`
-            );
-        }
+        ).then((otpResults) => {
+            const failed = otpResults.filter(
+                (r) => r.status === "rejected" || (r.status === "fulfilled" && !r.value.ok)
+            ).length;
+            if (failed > 0) {
+                console.warn(
+                    `[bulkImportMembers] OTP send failed for ${failed}/${insertedForOtp.length} members`
+                );
+            }
+        });
     }
 
     if (totalSuccessCount > 0) {
@@ -456,7 +464,6 @@ export async function bulkImportMembers(
             successCount: totalSuccessCount,
             failureCount: totalFailedRows.length,
             failedRows: totalFailedRows,
-            ...(otpFailureCount > 0 ? { otpFailureCount } : {}),
         },
     };
 }
