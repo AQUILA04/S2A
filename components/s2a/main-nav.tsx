@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
-import { Home, Users, LogOut, Upload, CreditCard, FileText, ClipboardCheck, Calendar } from "lucide-react";
+import { Home, Users, LogOut, Upload, CreditCard, FileText, ClipboardCheck, Calendar, KeyRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ============================================================
@@ -18,6 +18,7 @@ const navItems = [
     { href: "/admin/import", label: "Import", icon: Upload },
     { href: "/admin/settings/payment-channels", label: "Payments", icon: CreditCard },
     { href: "/admin/settings/calendar", label: "Calendar", icon: Calendar, roles: ["PRESIDENT"] },
+    { href: "/dashboard/account/password", label: "Mot de passe", icon: KeyRound },
 ] satisfies { href: string; label: string; icon: React.ElementType; roles?: string[] }[];
 
 export function MainNav() {
