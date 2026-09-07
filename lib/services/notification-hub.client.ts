@@ -157,8 +157,7 @@ export function resetNotificationHubTokenCache(): void {
 }
 
 /**
- * Request OTP delivery to an E.164 phone number.
- * Does not include `channel` — hub uses OTP_DEFAULT_CHANNEL (Twilio Verify).
+ * Request OTP delivery to an E.164 phone number via SMS (Brevo through hub internal OTP).
  */
 export async function sendOtp(
     to: string,
@@ -168,7 +167,7 @@ export async function sendOtp(
     const response = await fetch(`${config.baseUrl}/v1/otp/send`, {
         method: "POST",
         headers: await buildHeaders(idempotencyKey),
-        body: JSON.stringify({ to }),
+        body: JSON.stringify({ to, channel: "SMS" }),
     });
 
     if (!response.ok) {
@@ -177,7 +176,7 @@ export async function sendOtp(
 
     const data = (await response.json()) as OtpSendResponse;
     console.log(
-        `[notification-hub] OTP send accepted for ${maskPhone(to)} session=${data.sessionId}`
+        `[notification-hub] OTP send accepted for ${maskPhone(to)} session=${data.sessionId} provider=${data.provider ?? "?"}`
     );
     return data;
 }
@@ -190,7 +189,7 @@ export async function verifyOtp(to: string, code: string): Promise<OtpVerifyResp
     const response = await fetch(`${config.baseUrl}/v1/otp/verify`, {
         method: "POST",
         headers: await buildHeaders(),
-        body: JSON.stringify({ to, code: code.trim() }),
+        body: JSON.stringify({ to, code: code.trim(), channel: "SMS" }),
     });
 
     if (!response.ok) {
@@ -198,4 +197,39 @@ export async function verifyOtp(to: string, code: string): Promise<OtpVerifyResp
     }
 
     return (await response.json()) as OtpVerifyResponse;
+}
+
+export interface SmsNotificationResponse {
+    id: string;
+    status?: string;
+}
+
+/**
+ * Queue a transactional SMS via Notification Hub (`POST /v1/notifications`).
+ */
+export async function sendSmsNotification(
+    to: string,
+    body: string,
+    idempotencyKey?: string
+): Promise<SmsNotificationResponse> {
+    const config = getConfig();
+    const response = await fetch(`${config.baseUrl}/v1/notifications`, {
+        method: "POST",
+        headers: await buildHeaders(idempotencyKey),
+        body: JSON.stringify({
+            channel: "SMS",
+            to: [to],
+            body,
+        }),
+    });
+
+    if (!response.ok) {
+        throw await parseProblemResponse(response);
+    }
+
+    const data = (await response.json()) as SmsNotificationResponse;
+    console.log(
+        `[notification-hub] SMS notification accepted for ${maskPhone(to)} id=${data.id}`
+    );
+    return data;
 }

@@ -23,7 +23,7 @@ Créer aussi l'environnement **`prod`** (Settings → Environments) pour le job 
 | Secret | Description | Valeur typique |
 |--------|-------------|----------------|
 | `NOTIFICATION_HUB_BASE_URL` | API hub (HTTPS) | `https://notification-api.optimizesolux.com` |
-| `NOTIFICATION_HUB_OAUTH_TOKEN_URI` | Token OAuth client credentials | `https://notification-auth.optimizesolux.com/realms/notification-hub/protocol/openid-connect/token` |
+| `NOTIFICATION_HUB_OAUTH_TOKEN_URI` | Token OAuth client credentials | `https://auth.optimizesolux.com/realms/notification-hub/protocol/openid-connect/token` |
 | `NOTIFICATION_HUB_OAUTH_CLIENT_ID` | Client Keycloak realm `notification-hub` | `s2a` |
 | `NOTIFICATION_HUB_OAUTH_CLIENT_SECRET` | Secret du client OAuth | Keycloak / Vault |
 
@@ -51,7 +51,7 @@ gh secret set PROD_SERVER_USER -R AQUILA04/S2A -b "root"
 gh secret set APP_HOST -R AQUILA04/S2A -b "s2a.optimizesolux.com"
 gh secret set NEXTAUTH_URL -R AQUILA04/S2A -b "https://s2a.optimizesolux.com"
 gh secret set NOTIFICATION_HUB_BASE_URL -R AQUILA04/S2A -b "https://notification-api.optimizesolux.com"
-gh secret set NOTIFICATION_HUB_OAUTH_TOKEN_URI -R AQUILA04/S2A -b "https://notification-auth.optimizesolux.com/realms/notification-hub/protocol/openid-connect/token"
+gh secret set NOTIFICATION_HUB_OAUTH_TOKEN_URI -R AQUILA04/S2A -b "https://auth.optimizesolux.com/realms/notification-hub/protocol/openid-connect/token"
 gh secret set NOTIFICATION_HUB_OAUTH_CLIENT_ID -R AQUILA04/S2A -b "s2a"
 gh secret set NOTIFICATION_HUB_OAUTH_CLIENT_SECRET -R AQUILA04/S2A -b "YOUR_CLIENT_SECRET"
 # + NEXT_PUBLIC_SUPABASE_*, SUPABASE_SERVICE_ROLE_KEY, NEXTAUTH_SECRET depuis .env.local

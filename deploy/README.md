@@ -80,4 +80,4 @@ Si la connexion réussit mais la redirection échoue :
 
 - Logs conteneur : `docker logs s2a-app`
 - Erreur 401 hub → vérifier `NOTIFICATION_HUB_OAUTH_*` et client Keycloak `s2a`
-- `OTP_NOT_CONFIGURED` → hub ou Twilio Verify non configuré côté notification-hub
+- `OTP_NOT_CONFIGURED` → hub OTP internal / SMS Brevo non configuré (`OTP_PROVIDER=internal`, `SMS_PROVIDER=brevo`)
