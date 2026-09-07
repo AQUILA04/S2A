@@ -22,6 +22,15 @@ export function getSql(): postgres.Sql {
         idle_timeout: 20,
         connect_timeout: 10,
         prepare: false,
+        // Match former Supabase/PostgREST string dates (YYYY-MM-DD) for app logic
+        types: {
+            date: {
+                to: 1082,
+                from: [1082],
+                parse: (x: string) => x,
+                serialize: (x: unknown) => String(x).slice(0, 10),
+            },
+        },
     });
 
     return sql;

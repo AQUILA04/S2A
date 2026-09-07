@@ -96,11 +96,17 @@ export async function getMemberBalance(memberId: string): Promise<MemberBalanceC
   // ── Timeline Filtering & Theoretical Debt ────────────────────────────────
   // Timezone-safe: we work with UTC midnight of the 1st so local tz differences
   // don't cause off-by-one month errors across the timeline.
-  const joinDate = new Date(member.join_date + "T00:00:00Z");
+  // postgres.js may return DATE as Date or "YYYY-MM-DD" depending on config.
+  const joinDateRaw = member.join_date;
+  const joinDateStr =
+    joinDateRaw instanceof Date
+      ? joinDateRaw.toISOString().slice(0, 10)
+      : String(joinDateRaw ?? "").slice(0, 10);
+  const joinDate = new Date(`${joinDateStr}T00:00:00Z`);
   const now = new Date();
   const endDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
 
-  if (isNaN(joinDate.getTime())) throw new Error("Invalid join_date for member");
+  if (!joinDateStr || isNaN(joinDate.getTime())) throw new Error("Invalid join_date for member");
 
   let activeMonthCount = 0;
   let iterDate = new Date(Date.UTC(joinDate.getUTCFullYear(), joinDate.getUTCMonth(), 1));

@@ -82,6 +82,29 @@ describe("Balance Calculation Engine", () => {
     expect(result.status).toBe("ACTIVE");
   });
 
+  it("accepts join_date as a Date object (postgres.js default)", async () => {
+    setupMock(
+      {
+        id: "user-1",
+        join_date: new Date("2026-01-01T00:00:00.000Z"),
+        monthly_fee: 1000,
+        status: "ACTIVE",
+      },
+      [],
+      [
+        { amount: 1000, month: 1, year: 2026, status: "VALIDATED" },
+        { amount: 1000, month: 2, year: 2026, status: "VALIDATED" },
+        { amount: 1000, month: 3, year: 2026, status: "VALIDATED" },
+      ],
+      []
+    );
+
+    const result = await getMemberBalance("user-1");
+    expect(result.theoreticalDebt).toBe(3000);
+    expect(result.arrears).toBe(0);
+    expect(result.status).toBe("ACTIVE");
+  });
+
   it("handles blackout months properly", async () => {
     // Feb 2026 is blacked out → only Jan and Mar are active = 2 months
     setupMock(
