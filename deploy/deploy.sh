@@ -36,14 +36,16 @@ docker compose -f "${COMPOSE_FILE}" --project-name "${COMPOSE_PROJECT}" --env-fi
 
 if [[ -f seed.mjs ]]; then
   echo "==> Seeding admin accounts (idempotent)..."
-  NETWORK="$(docker inspect s2a-db -f '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}' 2>/dev/null | head -1 || true)"
+  NETWORK="$(docker inspect s2a-db --format '{{range $k, $v := .NetworkSettings.Networks}}{{println $k}}{{end}}' | head -n1 || true)"
   if [[ -n "${NETWORK}" ]]; then
     docker run --rm \
       --network "${NETWORK}" \
       -e DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}" \
-      -v "${SCRIPT_DIR}/seed.mjs:/seed.mjs:ro" \
+      -v "${SCRIPT_DIR}/seed.mjs:/work/seed.mjs:ro" \
+      -w /work \
       node:20-alpine \
-      sh -c "npm install --silent postgres bcryptjs >/dev/null 2>&1 && node /seed.mjs" || echo "WARN: seed failed (non-fatal)"
+      sh -c 'mkdir -p /tmp/seedpkg && cd /tmp/seedpkg && npm init -y >/dev/null && npm install --silent postgres@3.4.9 bcryptjs@2.4.3 && cp /work/seed.mjs ./seed.mjs && node seed.mjs' \
+      || echo "WARN: seed failed (non-fatal)"
   else
     echo "WARN: could not resolve db network for seed"
   fi
