@@ -1,10 +1,21 @@
+import { redirect } from "next/navigation";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getPendingContributions } from "@/app/admin/validation/actions";
 import { ValidationRow } from "@/app/admin/validation/components/validation-row";
 import { PullToRefresh } from "@/components/s2a/pull-to-refresh";
+import { hasRequiredRole } from "@/lib/auth/helpers";
+import type { MemberRole } from "@/types/database.types";
 import { ClipboardCheck, Clock } from "lucide-react";
 
 // Force dynamic rendering — always show fresh data
 export const dynamic = "force-dynamic";
+
+const VALIDATION_ROLES: MemberRole[] = [
+    "TREASURER",
+    "TRESORIER_ADJOINT",
+    "PRESIDENT",
+];
 
 // ============================================================
 // Helpers
@@ -32,6 +43,11 @@ function formatDate(isoDate: string) {
 // ============================================================
 
 export default async function ValidationPage() {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.role || !hasRequiredRole(session.user.role, VALIDATION_ROLES)) {
+        redirect("/dashboard");
+    }
+
     const result = await getPendingContributions();
 
     if (result.error) {

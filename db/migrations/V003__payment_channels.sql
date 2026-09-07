@@ -85,7 +85,8 @@ CREATE TRIGGER trg_payment_channels_updated_at
 --       not created by a specific EB member.
 INSERT INTO public."PaymentChannels" (provider_name, channel_type, account_number, instructions, is_active)
 VALUES
-    ('Moov Flooz',      'MOBILE_MONEY',  '',  'Envoyez au numéro Flooz de l''Amicale. Indiquez votre nom complet dans le motif.',     false),
-    ('Tmoney / Mixx',   'MOBILE_MONEY',  '',  'Envoyez au numéro Tmoney/Mixx de l''Amicale. Indiquez votre nom complet.',             false),
+    ('Flooz',           'MOBILE_MONEY',  '79769514',  'Envoyez au numéro Flooz 79769514. Indiquez votre nom complet dans le motif.',     true),
+    ('Mixx by Yas',     'MOBILE_MONEY',  '90288808',  'Envoyez au numéro Mixx by Yas 90288808. Indiquez votre nom complet dans le motif.', true),
+    ('Espèces',         'CASH',          'CASH',      'Remise en main propre au trésorier ou lors d''une réunion de l''Amicale.',         true),
     ('Virement bancaire','BANK_TRANSFER', '',  'Utilisez la référence : [NOM PRÉNOM - COTISATION MOIS/ANNÉE].',                        false),
     ('Western Union',   'INTL_TRANSFER', '',  'Envoyez au nom de l''Amicale S2A. Communiquez le MTCN au trésorier après envoi.',      false);

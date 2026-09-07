@@ -43,6 +43,14 @@ if [[ -f db-migrations/V004__must_change_password.sql ]]; then
     || echo "WARN: V004 migrate failed (non-fatal)"
 fi
 
+if [[ -f db-migrations/V005__default_payment_channels.sql ]]; then
+  echo "==> Applying V005 default payment channels (idempotent)..."
+  docker exec -i s2a-db \
+    psql -U "${DB_USER}" -d "${DB_NAME}" \
+    < db-migrations/V005__default_payment_channels.sql \
+    || echo "WARN: V005 migrate failed (non-fatal)"
+fi
+
 if [[ -f seed.mjs ]]; then
   echo "==> Seeding admin accounts (idempotent)..."
   NETWORK="$(docker inspect s2a-db --format '{{range $k, $v := .NetworkSettings.Networks}}{{println $k}}{{end}}' | head -n1 || true)"

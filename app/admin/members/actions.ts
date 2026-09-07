@@ -69,7 +69,8 @@ export async function getMembers(
 
     let query = supabase
         .from("Members")
-        .select("*", { count: "exact" });
+        .select("*", { count: "exact" })
+        .eq("role", "MEMBER");
 
     if (search) {
         query = query.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`);

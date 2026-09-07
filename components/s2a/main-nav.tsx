@@ -14,7 +14,7 @@ const navItems = [
     { href: "/dashboard", label: "Home", icon: Home },
     { href: "/dashboard/payment", label: "Déclaration", icon: FileText },
     { href: "/admin/members", label: "Members", icon: Users },
-    { href: "/admin/validation", label: "Validation", icon: ClipboardCheck },
+    { href: "/admin/validation", label: "Validation", icon: ClipboardCheck, roles: ["TREASURER", "TRESORIER_ADJOINT", "PRESIDENT"] },
     { href: "/admin/import", label: "Import", icon: Upload },
     { href: "/admin/settings/payment-channels", label: "Payments", icon: CreditCard },
     { href: "/admin/settings/calendar", label: "Calendar", icon: Calendar, roles: ["PRESIDENT"] },
